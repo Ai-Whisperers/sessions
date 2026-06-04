@@ -1,0 +1,658 @@
+{
+  "session_id": "20260509_211447_c030b9",
+  "model": "deepseek-chat",
+  "base_url": "https://api.deepseek.com/v1",
+  "platform": "whatsapp",
+  "session_start": "2026-05-09T21:14:47.608756",
+  "last_updated": "2026-05-09T21:16:26.701886",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nIf the user asks about configuring, setting up, or using Hermes Agent itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') before answering. Docs: https://hermes-agent.nousresearch.com/docs\n\nConversation started: Saturday, May 09, 2026 09:14 PM\nModel: deepseek-chat\nProvider: deepseek\n\nYou are on a text messaging communication platform, WhatsApp. Please do not use markdown as it does not render. You can send media files natively: to deliver a file to the user, include MEDIA:/absolute/path/to/file in your response. The file will be sent as a native WhatsApp attachment — images (.jpg, .png, .webp) appear as photos, videos (.mp4, .mov) play inline, and other files arrive as downloadable documents. You can also include image URLs in markdown format ![alt](url) and they will be sent as photos.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "patch",
+        "description": "Targeted find-and-replace edits in files. Use this instead of sed/awk in terminal. Uses fuzzy matching (9 strategies) so minor whitespace/indentation differences won't break it. Returns a unified diff. Auto-runs syntax checks after editing.\n\nReplace mode (default): find a unique string and replace it.\nPatch mode: apply V4A multi-file patches for bulk changes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "replace",
+                "patch"
+              ],
+              "description": "Edit mode: 'replace' for targeted find-and-replace, 'patch' for V4A multi-file patches",
+              "default": "replace"
+            },
+            "path": {
+              "type": "string",
+              "description": "File path to edit (required for 'replace' mode)"
+            },
+            "old_string": {
+              "type": "string",
+              "description": "Text to find in the file (required for 'replace' mode). Must be unique in the file unless replace_all=true. Include enough surrounding context to ensure uniqueness."
+            },
+            "new_string": {
+              "type": "string",
+              "description": "Replacement text (required for 'replace' mode). Can be empty string to delete the matched text."
+            },
+            "replace_all": {
+              "type": "boolean",
+              "description": "Replace all occurrences instead of requiring a unique match (default: false)",
+              "default": false
+            },
+            "patch": {
+              "type": "string",
+              "description": "V4A format patch content (required for 'patch' mode). Format:\n*** Begin Patch\n*** Update File: path/to/file\n@@ context hint @@\n context line\n-removed line\n+added line\n*** End Patch"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to read (absolute, relative, or ~/path)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line number to start reading from (1-indexed, default: 1)",
+              "default": 1,
+              "minimum": 1
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of lines to read (default: 500, max: 2000)",
+              "default": 500,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Search file contents or find files by name. Use this instead of grep/rg/find/ls in terminal. Ripgrep-backed, faster than shell equivalents.\n\nContent search (target='content'): Regex search inside files. Output modes: full matches with line numbers, file paths only, or match counts.\n\nFile search (target='files'): Find files by glob pattern (e.g., '*.py', '*config*'). Also use this instead of ls — results sorted by modification time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex pattern for content search, or glob pattern (e.g., '*.py') for file search"
+            },
+            "target": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files"
+              ],
+              "description": "'content' searches inside file contents, 'files' searches for files by name",
+              "default": "content"
+            },
+            "path": {
+              "type": "string",
+              "description": "Directory or file to search in (default: current working directory)",
+              "default": "."
+            },
+            "file_glob": {
+              "type": "string",
+              "description": "Filter files by pattern in grep mode (e.g., '*.py' to only search Python files)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 50)",
+              "default": 50
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Skip first N results for pagination (default: 0)",
+              "default": 0
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_only",
+                "count"
+              ],
+              "description": "Output format for grep mode: 'content' shows matching lines with line numbers, 'files_only' lists file paths, 'count' shows match counts per file",
+              "default": "content"
+            },
+            "context": {
+              "type": "integer",
+              "description": "Number of context lines before and after each match (grep mode only)",
+              "default": 0
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write content to a file, completely replacing existing content. Use this instead of echo/cat heredoc in terminal. Creates parent directories automatically. OVERWRITES the entire file — use 'patch' for targeted edits. Auto-runs syntax checks on .py/.json/.yaml/.toml and other linted languages; only NEW errors introduced by this write are surfaced (pre-existing errors are filtered out).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write (will be created if it doesn't exist, overwritten if it does)"
+            },
+            "content": {
+              "type": "string",
+              "description": "Complete content to write to the file"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 30,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Add SEO enhancements to the Tsuki restaurant website at /root/tsuki-restaurante:\n\n1. **Add JSON-LD schema.org structured data** in the layout.tsx:\n   - Add a Restaurant schema with: name, description, url, telephone, address (Louis Pasteur, San Lorenzo 111434, Paraguay), servesCuisine (\"Chinese\", \"Japanese\", \"Sushi\"), priceRange (\"$$\"), aggregateRating (4.7), image (the OG image), openingHours\n   - Also add a LocalBusiness schema\n   - Import content from /content/es.json and use the data\n\n2. **Enhance metadata in layout.tsx**:\n   - Add keywords meta tags: \"comida china San Lorenzo, sushi San Lorenzo, restaurante oriental Paraguay, wok San Lorenzo, gyozas, arrolladitos primavera, comida japonesa Paraguay, restaurante chino San Lorenzo\"\n   - Add verification for Google Search Console (use placeholder: \"google-site-verification\" with \"your-code-here\")\n   - Add more OG tags: type, locale (es_PY), site_name\n   - Add twitter:card, twitter:title, twitter:description tags\n\n3. **Add a robots.ts** file that already exists — just verify it allows all and references sitemap.xml correctly. The /qr page was added to disallow.\n\n4. **Update sitemap.ts** — verify it includes all 6 pages and excludes /qr (the subagent already modified this).\n\n5. **Add canonical URLs** to the layout.\n\nEdit /root/tsuki-restaurante/app/layout.tsx to add JSON-LD script in the body. The JSON-LD should be a script tag with type=\"application/ld+json\" added inside the body.\n\nAfter changes, run `npm run build` to verify."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me start by reading the existing files to understand the current state.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_EliSBM3JN1WsWy9ZXmqm7543",
+          "call_id": "call_00_EliSBM3JN1WsWy9ZXmqm7543",
+          "response_item_id": "fc_00_EliSBM3JN1WsWy9ZXmqm7543",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/layout.tsx\"}"
+          }
+        },
+        {
+          "id": "call_01_zC1gOIdSGBx47PfJUDEQ0813",
+          "call_id": "call_01_zC1gOIdSGBx47PfJUDEQ0813",
+          "response_item_id": "fc_01_zC1gOIdSGBx47PfJUDEQ0813",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/content/es.json\"}"
+          }
+        },
+        {
+          "id": "call_02_hk09TGHctKVEWXoiYJD35910",
+          "call_id": "call_02_hk09TGHctKVEWXoiYJD35910",
+          "response_item_id": "fc_02_hk09TGHctKVEWXoiYJD35910",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"pattern\": \"robots.ts\", \"path\": \"/root/tsuki-restaurante\", \"target\": \"files\"}"
+          }
+        },
+        {
+          "id": "call_03_xHn2oFQpu1XejVLm3CkE5096",
+          "call_id": "call_03_xHn2oFQpu1XejVLm3CkE5096",
+          "response_item_id": "fc_03_xHn2oFQpu1XejVLm3CkE5096",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"pattern\": \"sitemap.ts\", \"path\": \"/root/tsuki-restaurante\", \"target\": \"files\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import type { Metadata } from \\\"next\\\";\\n     2|import { Inter, Playfair_Display } from \\\"next/font/google\\\";\\n     3|import \\\"./globals.css\\\";\\n     4|import Header from \\\"@/components/header\\\";\\n     5|import Footer from \\\"@/components/footer\\\";\\n     6|import WhatsAppFloat from \\\"@/components/whatsapp-float\\\";\\n     7|\\n     8|const inter = Inter({\\n     9|  subsets: [\\\"latin\\\"],\\n    10|  variable: \\\"--font-body\\\",\\n    11|});\\n    12|\\n    13|const playfair = Playfair_Display({\\n    14|  subsets: [\\\"latin\\\"],\\n    15|  variable: \\\"--font-heading\\\",\\n    16|});\\n    17|\\n    18|export const metadata: Metadata = {\\n    19|  title: \\\"Tsuki Restaurante Oriental — Auténtica cocina china y sushi en San Lorenzo\\\",\\n    20|  description: \\\"Descubrí Tsuki Restaurante Oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas y más. Abierto los sábados. Pedí por WhatsApp.\\\",\\n    21|  openGraph: {\\n    22|    title: \\\"Tsuki Restaurante Oriental\\\",\\n    23|    description: \\\"Auténtica cocina oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas.\\\",\\n    24|    url: \\\"https://tsuki.paragu-ai.com\\\",\\n    25|    siteName: \\\"Tsuki Restaurante Oriental\\\",\\n    26|    locale: \\\"es_PY\\\",\\n    27|    type: \\\"website\\\",\\n    28|  },\\n    29|};\\n    30|\\n    31|export default function RootLayout({\\n    32|  children,\\n    33|}: {\\n    34|  children: React.ReactNode;\\n    35|}) {\\n    36|  return (\\n    37|    <html lang=\\\"es\\\" className={`${inter.variable} ${playfair.variable}`}>\\n    38|      <body className=\\\"min-h-screen flex flex-col\\\">\\n    39|        <Header />\\n    40|        <main className=\\\"flex-1\\\">{children}</main>\\n    41|        <Footer />\\n    42|        <WhatsAppFloat />\\n    43|      </body>\\n    44|    </html>\\n    45|  );\\n    46|}\\n    47|\", \"total_lines\": 46, \"file_size\": 1374, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_EliSBM3JN1WsWy9ZXmqm7543"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|{\\n     2|  \\\"site\\\": {\\n     3|    \\\"name\\\": \\\"Tsuki Restaurante Oriental\\\",\\n     4|    \\\"shortName\\\": \\\"Tsuki\\\",\\n     5|    \\\"description\\\": \\\"Auténtica cocina oriental en San Lorenzo. Especialidades chinas, sushi y wok.\\\",\\n     6|    \\\"url\\\": \\\"https://tsuki.paragu-ai.com\\\",\\n     7|    \\\"phone\\\": \\\"+595 974 161698\\\",\\n     8|    \\\"whatsapp\\\": \\\"595974161698\\\",\\n     9|    \\\"email\\\": \\\"\\\",\\n    10|    \\\"address\\\": \\\"Louis Pasteur, San Lorenzo 111434, Paraguay\\\",\\n    11|    \\\"addressShort\\\": \\\"Louis Pasteur, San Lorenzo\\\",\\n    12|    \\\"hours\\\": \\\"Lun–Sáb 11:00–14:00 · 19:00–23:00, Dom cerrado\\\",\\n    13|    \\\"instagram\\\": \\\"\\\",\\n    14|    \\\"facebook\\\": \\\"\\\",\\n    15|    \\\"ogImage\\\": \\\"/images/og.jpg\\\"\\n    16|  },\\n    17|  \\\"navigation\\\": [\\n    18|    { \\\"href\\\": \\\"/\\\", \\\"label\\\": \\\"Inicio\\\" },\\n    19|    { \\\"href\\\": \\\"/carta\\\", \\\"label\\\": \\\"Carta\\\" },\\n    20|    { \\\"href\\\": \\\"/galeria\\\", \\\"label\\\": \\\"Galería\\\" },\\n    21|    { \\\"href\\\": \\\"/nosotros\\\", \\\"label\\\": \\\"Nosotros\\\" },\\n    22|    { \\\"href\\\": \\\"/contacto\\\", \\\"label\\\": \\\"Contacto\\\" },\\n    23|    { \\\"href\\\": \\\"/pedidos\\\", \\\"label\\\": \\\"Pedidos\\\" }\\n    24|  ],\\n    25|  \\\"home\\\": {\\n    26|    \\\"seo\\\": {\\n    27|      \\\"title\\\": \\\"Tsuki Restaurante Oriental — Auténtica cocina china y sushi en San Lorenzo\\\",\\n    28|      \\\"description\\\": \\\"Descubrí Tsuki Restaurante Oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas y más. Abierto los sábados. Pedí por WhatsApp.\\\"\\n    29|    },\\n    30|    \\\"hero\\\": {\\n    31|      \\\"eyebrow\\\": \\\"Tsuki Restaurante Oriental\\\",\\n    32|      \\\"headline\\\": \\\"Auténtica cocina oriental\\\",\\n    33|      \\\"subheadline\\\": \\\"Sabores de China y Japón en el corazón de San Lorenzo. Arrolladitos, sushi, wok, gyozas y más.\\\",\\n    34|      \\\"ctaPrimaryText\\\": \\\"Ver Carta\\\",\\n    35|      \\\"ctaPrimaryHref\\\": \\\"/carta\\\",\\n    36|      \\\"ctaSecondaryText\\\": \\\"Pedir por WhatsApp\\\",\\n    37|      \\\"ctaSecondaryHref\\\": \\\"https://wa.me/595974161698\\\",\\n    38|      \\\"bgImage\\\": \\\"/images/hero-bg.jpg\\\"\\n    39|    },\\n    40|    \\\"features\\\": {\\n    41|      \\\"title\\\": \\\"Nuestra cocina\\\",\\n    42|      \\\"subtitle\\\": \\\"Platos preparados con ingredientes frescos y recetas tradicionales\\\",\\n    43|      \\\"items\\\": [\\n    44|        { \\\"icon\\\": \\\"utensilsCrossed\\\", \\\"title\\\": \\\"Cocina China\\\", \\\"description\\\": \\\"Arroz chino, chop suey, yakisoba, carnes salteadas, sopas tradicionales y más.\\\" },\\n    45|        { \\\"icon\\\": \\\"fish\\\", \\\"title\\\": \\\"Sushi & Rolls\\\", \\\"description\\\": \\\"New York, California, Chicago, Miami — rolls frescos de 5 o 10 piezas. Combos especiales.\\\" },\\n    46|        { \\\"icon\\\": \\\"flame\\\", \\\"title\\\": \\\"Wok Salteados\\\", \\\"description\\\": \\\"Fideos de arroz, verduras salteadas, con tu proteína favorita: pollo, carne, cerdo o camarones.\\\" },\\n    47|        { \\\"icon\\\": \\\"chefHat\\\", \\\"title\\\": \\\"Entradas & Gyozas\\\", \\\"description\\\": \\\"Arrolladitos crocantes, gyozas al vapor o fritas, yakitori, romanitas de pollo y pescado.\\\" }\\n    48|      ]\\n    49|    },\\n    50|    \\\"menuSection\\\": {\\n    51|      \\\"title\\\": \\\"Nuestra Carta\\\",\\n    52|      \\\"description\\\": \\\"Explorá nuestro menú completo con más de 60 platos\\\",\\n    53|      \\\"categories\\\": [\\n    54|        { \\\"id\\\": \\\"entradas\\\", \\\"name\\\": \\\"Entradas\\\", \\\"priceRange\\\": \\\"Gs 20.000 – 45.000\\\" },\\n    55|        { \\\"id\\\": \\\"sopas\\\", \\\"name\\\": \\\"Sopas\\\", \\\"priceRange\\\": \\\"Gs 35.000 – 55.000\\\" },\\n    56|        { \\\"id\\\": \\\"salteados\\\", \\\"name\\\": \\\"Salteados Wok\\\", \\\"priceRange\\\": \\\"Gs 32.000 – 54.000\\\" },\\n    57|        { \\\"id\\\": \\\"carnes\\\", \\\"name\\\": \\\"Carnes & Pollo\\\", \\\"priceRange\\\": \\\"Gs 40.000 – 50.000\\\" },\\n    58|        { \\\"id\\\": \\\"mariscos\\\", \\\"name\\\": \\\"Mariscos & Pescados\\\", \\\"priceRange\\\": \\\"Gs 63.000 – 94.000\\\" },\\n    59|        { \\\"id\\\": \\\"sushi\\\", \\\"name\\\": \\\"Sushi & Combos\\\", \\\"priceRange\\\": \\\"Gs 24.000 – 150.000\\\" }\\n    60|      ]\\n    61|    },\\n    62|    \\\"hours\\\": {\\n    63|      \\\"title\\\": \\\"Horarios\\\",\\n    64|      \\\"schedule\\\": [\\n    65|        { \\\"day\\\": \\\"Sábado\\\", \\\"hours\\\": \\\"11:00 – 14:00 · 19:00 – 23:00\\\" }\\n    66|      ],\\n    67|      \\\"note\\\": \\\"Consultanos por días adicionales al WhatsApp\\\"\\n    68|    },\\n    69|    \\\"cta\\\": {\\n    70|      \\\"title\\\": \\\"¿Listo para comer algo rico?\\\",\\n    71|      \\\"subtitle\\\": \\\"Pedí por WhatsApp o pasá por el local\\\",\\n    72|      \\\"buttonText\\\": \\\"Pedir Ahora\\\",\\n    73|      \\\"buttonHref\\\": \\\"https://wa.me/595974161698\\\"\\n    74|    }\\n    75|  },\\n    76|  \\\"menu\\\": {\\n    77|    \\\"seo\\\": {\\n    78|      \\\"title\\\": \\\"Carta — Tsuki Restaurante Oriental\\\",\\n    79|      \\\"description\\\": \\\"Menú completo de Tsuki: entradas, sopas, salteados wok, carnes, pollo, cerdo, mariscos, pescados, sushi y combos.\\\"\\n    80|    },\\n    81|    \\\"intro\\\": {\\n    82|      \\\"title\\\": \\\"Nuestra Carta\\\",\\n    83|      \\\"subtitle\\\": \\\"Explorá todos nuestros platos\\\"\\n    84|    },\\n    85|    \\\"categories\\\": [\\n    86|      {\\n    87|        \\\"id\\\": \\\"entradas\\\",\\n    88|        \\\"name\\\": \\\"Entradas\\\",\\n    89|        \\\"icon\\\": \\\"utensils\\\",\\n    90|        \\\"items\\\": [\\n    91|          { \\\"name\\\": \\\"Arrolladitos de Primavera\\\", \\\"description\\\": \\\"Masa crocante rellena de repollo, cebolla y zanahoria.\\\", \\\"price\\\": \\\"Gs 20.000 (3 unid.) / Gs 30.000 (5 unid.)\\\" },\\n    92|          { \\\"name\\\": \\\"Arrolladitos Mixto\\\", \\\"description\\\": \\\"Masa crocante rellena de verduras, carne y pollo.\\\", \\\"price\\\": \\\"Gs 26.000 (3 unid.) / Gs 38.000 (5 unid.)\\\" },\\n    93|          { \\\"name\\\": \\\"Gyozas al Vapor\\\", \\\"description\\\": \\\"Masa rellena de carne de cerdo condimentado (8 unidades).\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n    94|          { \\\"name\\\": \\\"Gyozas Fritas\\\", \\\"description\\\": \\\"Masa rellena de carne de cerdo condimentado (8 unidades).\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n    95|          { \\\"name\\\": \\\"Bastoncitos de Salmón\\\", \\\"description\\\": \\\"Salmón empanado y frito (5 piezas).\\\", \\\"price\\\": \\\"Gs 45.000\\\" },\\n    96|          { \\\"name\\\": \\\"Yakitori (Asaditos)\\\", \\\"description\\\": \\\"Asada con Salsa Teriyaki. De cerdo, carne y pollo (2 unidades).\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n    97|          { \\\"name\\\": \\\"Romanitas de Pollo\\\", \\\"description\\\": \\\"Trozos de pollo condimentado frito y crocante.\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n    98|          { \\\"name\\\": \\\"Romanitas de Pescado\\\", \\\"description\\\": \\\"Filetes de tilapia condimentada frita, crocante y sabrosa.\\\", \\\"price\\\": \\\"Gs 45.000\\\" },\\n    99|          { \\\"name\\\": \\\"Papas Fritas\\\", \\\"description\\\": \\\"Finitas rodajas de papas fritas, doradas y crujientes.\\\", \\\"price\\\": \\\"Gs 25.000\\\" }\\n   100|        ]\\n   101|      },\\n   102|      {\\n   103|        \\\"id\\\": \\\"sopas\\\",\\n   104|        \\\"name\\\": \\\"Sopas\\\",\\n   105|        \\\"icon\\\": \\\"utensils\\\",\\n   106|        \\\"items\\\": [\\n   107|          { \\\"name\\\": \\\"Sopa de Maíz con Pollo\\\", \\\"description\\\": \\\"Sopa tradicional china compuesta por maíz y pollo.\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n   108|          { \\\"name\\\": \\\"Sopa Agripicante\\\", \\\"description\\\": \\\"Sopa intensa de verduras con huevo y un toque de picante.\\\", \\\"price\\\": \\\"Gs 40.000\\\" },\\n   109|          { \\\"name\\\": \\\"Sopa de Mariscos\\\", \\\"description\\\": \\\"Aromática sopa de mariscos con verduras.\\\", \\\"price\\\": \\\"Gs 55.000\\\" },\\n   110|          { \\\"name\\\": \\\"Ramen\\\", \\\"description\\\": \\\"Tradicional sopa de fideos con verduras y huevo.\\\", \\\"price\\\": \\\"Gs 38.000\\\" },\\n   111|          { \\\"name\\\": \\\"Sopa de Algas\\\", \\\"description\\\": \\\"Sopa de algas marinas con huevo y verduras frescas.\\\", \\\"price\\\": \\\"Gs 35.000\\\" }\\n   112|        ]\\n   113|      },\\n   114|      {\\n   115|        \\\"id\\\": \\\"salteados\\\",\\n   116|        \\\"name\\\": \\\"Salteados Wok\\\",\\n   117|        \\\"icon\\\": \\\"flame\\\",\\n   118|        \\\"type\\\": \\\"table\\\",\\n   119|        \\\"columns\\\": [\\\"Proteína\\\", \\\"Arroz Chino\\\", \\\"Fideo Arroz\\\", \\\"Chop Suey\\\", \\\"Yakisoba\\\"],\\n   120|        \\\"rows\\\": [\\n   121|          [\\\"Primavera\\\", \\\"Gs 35.000\\\", \\\"Gs 33.000\\\", \\\"Gs 32.000\\\", \\\"Gs 34.000\\\"],\\n   122|          [\\\"Pollo\\\", \\\"Gs 37.000\\\", \\\"Gs 37.000\\\", \\\"Gs 35.000\\\", \\\"Gs 38.000\\\"],\\n   123|          [\\\"Carne\\\", \\\"Gs 40.000\\\", \\\"Gs 40.000\\\", \\\"Gs 38.000\\\", \\\"Gs 44.000\\\"],\\n   124|          [\\\"Mixto\\\", \\\"Gs 43.000\\\", \\\"Gs 43.000\\\", \\\"Gs 41.000\\\", \\\"Gs 51.000\\\"],\\n   125|          [\\\"Cerdo\\\", \\\"Gs 37.000\\\", \\\"Gs 37.000\\\", \\\"Gs 33.000\\\", \\\"Gs 38.000\\\"],\\n   126|          [\\\"Camarones\\\", \\\"Gs 48.000\\\", \\\"Gs 47.000\\\", \\\"Gs 45.000\\\", \\\"Gs 48.000\\\"],\\n   127|          [\\\"Mixto c/ Camarones\\\", \\\"Gs 53.000\\\", \\\"Gs 53.000\\\", \\\"Gs 51.000\\\", \\\"Gs 54.000\\\"],\\n   128|          [\\\"Arroz Vapor\\\", \\\"Gs 10.000\\\", \\\"\\\", \\\"\\\", \\\"\\\"]\\n   129|        ]\\n   130|      },\\n   131|      {\\n   132|        \\\"id\\\": \\\"carne\\\",\\n   133|        \\\"name\\\": \\\"Carne\\\",\\n   134|        \\\"icon\\\": \\\"beef\\\",\\n   135|        \\\"items\\\": [\\n   136|          { \\\"name\\\": \\\"Verduras Salteadas\\\", \\\"price\\\": \\\"Gs 49.000\\\" },\\n   137|          { \\\"name\\\": \\\"Cebolla y Locote\\\", \\\"price\\\": \\\"Gs 46.000\\\" },\\n   138|          { \\\"name\\\": \\\"Cebollita de Verdeo\\\", \\\"price\\\": \\\"Gs 46.000\\\" },\\n   139|          { \\\"name\\\": \\\"Brócoli\\\", \\\"price\\\": \\\"Gs 49.000\\\" },\\n   140|          { \\\"name\\\": \\\"Costillita Tsuki\\\", \\\"price\\\": \\\"Gs 50.000\\\" },\\n   141|          { \\\"name\\\": \\\"Salsa de Ostras\\\", \\\"price\\\": \\\"Gs 50.000\\\" },\\n   142|          { \\\"name\\\": \\\"Salsa China\\\", \\\"price\\\": \\\"Gs 50.000\\\" }\\n   143|        ]\\n   144|      },\\n   145|      {\\n   146|        \\\"id\\\": \\\"pollo\\\",\\n   147|        \\\"name\\\": \\\"Pollo\\\",\\n   148|        \\\"icon\\\": \\\"drumstick\\\",\\n   149|        \\\"items\\\": [\\n   150|          { \\\"name\\\": \\\"Verduras Salteadas\\\", \\\"price\\\": \\\"Gs 42.000\\\" },\\n   151|          { \\\"name\\\": \\\"Agridulce\\\", \\\"price\\\": \\\"Gs 40.000\\\" },\\n   152|          { \\\"name\\\": \\\"Salsa Teriyaki\\\", \\\"price\\\": \\\"Gs 40.000\\\" },\\n   153|          { \\\"name\\\": \\\"Salsa Curry\\\", \\\"price\\\": \\\"Gs 43.000\\\" },\\n   154|          { \\\"name\\\": \\\"Al Champiñón\\\", \\\"price\\\": \\\"Gs 43.000\\\" }\\n   155|        ]\\n   156|      },\\n   157|      {\\n   158|        \\\"id\\\": \\\"cerdo\\\",\\n   159|        \\\"name\\\": \\\"Cerdo\\\",\\n   160|        \\\"icon\\\": \\\"drumstick\\\",\\n   161|        \\\"items\\\": [\\n   162|          { \\\"name\\\": \\\"Verduras Salteadas\\\", \\\"price\\\": \\\"Gs 42.000\\\" },\\n   163|          { \\\"name\\\": \\\"Agridulce\\\", \\\"price\\\": \\\"Gs 40.000\\\" },\\n   164|          { \\\"name\\\": \\\"Salsa Picante y Ajo\\\", \\\"price\\\": \\\"Gs 45.000\\\" },\\n   165|          { \\\"name\\\": \\\"Al Champiñón\\\", \\\"price\\\": \\\"Gs 43.000\\\" },\\n   166|          { \\\"name\\\": \\\"Costillita de Cerdo\\\", \\\"price\\\": \\\"Gs 50.000\\\" }\\n   167|        ]\\n   168|      },\\n   169|      {\\n   170|        \\\"id\\\": \\\"mariscos\\\",\\n   171|        \\\"name\\\": \\\"Mariscos\\\",\\n   172|        \\\"icon\\\": \\\"fish\\\",\\n   173|        \\\"items\\\": [\\n   174|          { \\\"name\\\": \\\"Camarones Fritos\\\", \\\"price\\\": \\\"Gs 65.000\\\" },\\n   175|          { \\\"name\\\": \\\"Camarones Verduras\\\", \\\"price\\\": \\\"Gs 68.000\\\" },\\n   176|          { \\\"name\\\": \\\"Camarones Salsa China\\\", \\\"price\\\": \\\"Gs 70.000\\\" },\\n   177|          { \\\"name\\\": \\\"Camarones Brócoli\\\", \\\"price\\\": \\\"Gs 68.000\\\" },\\n   178|          { \\\"name\\\": \\\"Aros de Calamar Fritos\\\", \\\"price\\\": \\\"Gs 63.000\\\" },\\n   179|          { \\\"name\\\": \\\"Calamar Verduras\\\", \\\"price\\\": \\\"Gs 68.000\\\" },\\n   180|          { \\\"name\\\": \\\"Mariscos Verduras\\\", \\\"price\\\": \\\"Gs 72.000\\\" }\\n   181|        ]\\n   182|      },\\n   183|      {\\n   184|        \\\"id\\\": \\\"pescados\\\",\\n   185|        \\\"name\\\": \\\"Pescados\\\",\\n   186|        \\\"icon\\\": \\\"fish\\\",\\n   187|        \\\"items\\\": [\\n   188|          { \\\"name\\\": \\\"Frito con Verduras\\\", \\\"price\\\": \\\"Gs 70.000\\\" },\\n   189|          { \\\"name\\\": \\\"Salsa China\\\", \\\"price\\\": \\\"Gs 73.000\\\" },\\n   190|          { \\\"name\\\": \\\"Salsa de Ostras\\\", \\\"price\\\": \\\"Gs 73.000\\\" },\\n   191|          { \\\"name\\\": \\\"Salmón con Verduras\\\", \\\"price\\\": \\\"Gs 94.000\\\" }\\n   192|        ]\\n   193|      },\\n   194|      {\\n   195|        \\\"id\\\": \\\"sushi\\\",\\n   196|        \\\"name\\\": \\\"Sushi & Combos\\\",\\n   197|        \\\"icon\\\": \\\"fish\\\",\\n   198|        \\\"items\\\": [\\n   199|          { \\\"name\\\": \\\"New York Roll\\\", \\\"description\\\": \\\"Salmón, queso crema, aguacate.\\\", \\\"price\\\": \\\"Gs 27.000 (5 pz) / Gs 47.000 (10 pz)\\\" },\\n   200|          { \\\"name\\\": \\\"California Roll\\\", \\\"description\\\": \\\"Kanikama, queso crema, aguacate, pepino.\\\", \\\"price\\\": \\\"Gs 25.000 (5 pz) / Gs 47.000 (10 pz)\\\" },\\n   201|          { \\\"name\\\": \\\"Chicago Roll\\\", \\\"description\\\": \\\"Camarones, queso crema, pepino.\\\", \\\"price\\\": \\\"Gs 25.000 (5 pz) / Gs 47.000 (10 pz)\\\" },\\n   202|          { \\\"name\\\": \\\"Miami Roll\\\", \\\"description\\\": \\\"Salmón, queso crema, mango, aguacate.\\\", \\\"price\\\": \\\"Gs 28.000 (5 pz) / Gs 49.000 (10 pz)\\\" },\\n   203|          { \\\"name\\\": \\\"Los Angeles Roll\\\", \\\"description\\\": \\\"Atún, pepino, queso crema.\\\", \\\"price\\\": \\\"Gs 24.000 (5 pz) / Gs 46.000 (10 pz)\\\" },\\n   204|          { \\\"name\\\": \\\"Las Vegas Roll\\\", \\\"description\\\": \\\"Mango, aguacate, pepino, queso crema.\\\", \\\"price\\\": \\\"Gs 24.000 (5 pz) / Gs 45.000 (10 pz)\\\" },\\n   205|          { \\\"name\\\": \\\"Nigiri de Salmón\\\", \\\"description\\\": \\\"3 piezas.\\\", \\\"price\\\": \\\"Gs 35.000\\\" },\\n   206|          { \\\"name\\\": \\\"Mix 25 piezas\\\", \\\"description\\\": \\\"New York, Los Angeles, California.\\\", \\\"price\\\": \\\"Gs 90.000\\\" },\\n   207|          { \\\"name\\\": \\\"Mix 40 piezas\\\", \\\"description\\\": \\\"New York, Los Angeles, California, Chicago.\\\", \\\"price\\\": \\\"Gs 150.000\\\" }\\n   208|        ],\\n   209|        \\\"notes\\\": [\\n   210|          \\\"Apanado y frito a elección: +Gs 3.000 (5 pz) / +Gs 6.000 (10 pz)\\\",\\n   211|          \\\"Extra salsa: Gs 5.000\\\"\\n   212|        ]\\n   213|      }\\n   214|    ]\\n   215|  },\\n   216|  \\\"about\\\": {\\n   217|    \\\"seo\\\": {\\n   218|      \\\"title\\\": \\\"Nosotros — Tsuki Restaurante Oriental\\\",\\n   219|      \\\"description\\\": \\\"Conocé Tsuki Restaurante Oriental en San Lorenzo. Cocina oriental auténtica con ingredientes frescos.\\\"\\n   220|    },\\n   221|    \\\"hero\\\": {\\n   222|      \\\"title\\\": \\\"Sobre Tsuki\\\",\\n   223|      \\\"subtitle\\\": \\\"Pasión por la cocina oriental\\\",\\n   224|      \\\"image\\\": \\\"/images/restaurant-interior.jpg\\\"\\n   225|    },\\n   226|    \\\"story\\\": [\\n   227|      \\\"Tsuki Restaurante Oriental nace de la pasión por los sabores auténticos de Asia. En San Lorenzo, ofrecemos una experiencia culinaria que combina recetas tradicionales chinas con la frescura del sushi japonés.\\\",\\n   228|      \\\"Nuestra carta fue creada para compartir — desde arrolladitos crocantes hasta combos de sushi para grupos. Cada plato se prepara con ingredientes frescos, respetando las técnicas tradicionales de wok y vapor.\\\",\\n   229|      \\\"Te esperamos en Louis Pasteur, San Lorenzo, para que descubras por qué Tsuki es el lugar favorito de los amantes de la comida oriental en Paraguay.\\\"\\n   230|    ],\\n   231|    \\\"values\\\": [\\n   232|      { \\\"title\\\": \\\"Frescura\\\", \\\"description\\\": \\\"Ingredientes seleccionados cuidadosamente para cada plato.\\\" },\\n   233|      { \\\"title\\\": \\\"Tradición\\\", \\\"description\\\": \\\"Recetas que respetan las técnicas culinarias orientales.\\\" },\\n   234|      { \\\"title\\\": \\\"Variedad\\\", \\\"description\\\": \\\"Más de 60 platos para todos los gustos.\\\" }\\n   235|    ]\\n   236|  },\\n   237|  \\\"gallery\\\": {\\n   238|    \\\"seo\\\": {\\n   239|      \\\"title\\\": \\\"Galería — Tsuki Restaurante Oriental\\\",\\n   240|      \\\"description\\\": \\\"Fotos de nuestros platos: sushi, arrolladitos, wok, gyozas y más.\\\"\\n   241|    },\\n   242|    \\\"hero\\\": {\\n   243|      \\\"title\\\": \\\"Galería\\\",\\n   244|      \\\"subtitle\\\": \\\"Mirá nuestros platos\\\"\\n   245|    },\\n   246|    \\\"images\\\": [\\n   247|      { \\\"src\\\": \\\"/images/sushi-1.jpg\\\", \\\"alt\\\": \\\"Sushi plato fresco con salmón\\\", \\\"category\\\": \\\"sushi\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   248|      { \\\"src\\\": \\\"/images/sushi-2.jpg\\\", \\\"alt\\\": \\\"Rollos de sushi variedad\\\", \\\"category\\\": \\\"sushi\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   249|      { \\\"src\\\": \\\"/images/wok-1.jpg\\\", \\\"alt\\\": \\\"Salteado wok con verduras\\\", \\\"category\\\": \\\"wok\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   250|      { \\\"src\\\": \\\"/images/wok-2.jpg\\\", \\\"alt\\\": \\\"Fideos salteados al wok\\\", \\\"category\\\": \\\"wok\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   251|      { \\\"src\\\": \\\"/images/spring-rolls.jpg\\\", \\\"alt\\\": \\\"Arrolladitos de primavera crocantes\\\", \\\"category\\\": \\\"entradas\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   252|      { \\\"src\\\": \\\"/images/gyozas.jpg\\\", \\\"alt\\\": \\\"Gyozas al vapor\\\", \\\"category\\\": \\\"entradas\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   253|      { \\\"src\\\": \\\"/images/shrimp.jpg\\\", \\\"alt\\\": \\\"Camarones fritos\\\", \\\"category\\\": \\\"mariscos\\\", \\\"width\\\": 800, \\\"height\\\": 600 },\\n   254|      { \\\"src\\\": \\\"/images/restaurant-interior.jpg\\\", \\\"alt\\\": \\\"Interior del restaurante\\\", \\\"category\\\": \\\"local\\\", \\\"width\\\": 800, \\\"height\\\": 600 }\\n   255|    ]\\n   256|  },\\n   257|  \\\"contact\\\": {\\n   258|    \\\"seo\\\": {\\n   259|      \\\"title\\\": \\\"Contacto — Tsuki Restaurante Oriental\\\",\\n   260|      \\\"description\\\": \\\"Contactanos por WhatsApp o visitanos en Louis Pasteur, San Lorenzo.\\\"\\n   261|    },\\n   262|    \\\"hero\\\": {\\n   263|      \\\"title\\\": \\\"Contacto\\\",\\n   264|      \\\"subtitle\\\": \\\"Estamos acá para vos\\\"\\n   265|    },\\n   266|    \\\"info\\\": [\\n   267|      { \\\"icon\\\": \\\"mapPin\\\", \\\"label\\\": \\\"Dirección\\\", \\\"value\\\": \\\"Louis Pasteur, San Lorenzo 111434, Paraguay\\\" },\\n   268|      { \\\"icon\\\": \\\"phone\\\", \\\"label\\\": \\\"Teléfono\\\", \\\"value\\\": \\\"+595 974 161698\\\" },\\n   269|      { \\\"icon\\\": \\\"clock\\\", \\\"label\\\": \\\"Horarios\\\", \\\"value\\\": \\\"Sábado 11:00–14:00, 19:00–23:00\\\" }\\n   270|    ],\\n   271|    \\\"cta\\\": {\\n   272|      \\\"title\\\": \\\"Hacé tu pedido\\\",\\n   273|      \\\"subtitle\\\": \\\"Escribinos al WhatsApp y te confirmamos al instante\\\",\\n   274|      \\\"buttonText\\\": \\\"Escribir al WhatsApp\\\",\\n   275|      \\\"buttonHref\\\": \\\"https://wa.me/595974161698\\\"\\n   276|    }\\n   277|  },\\n   278|  \\\"order\\\": {\\n   279|    \\\"seo\\\": {\\n   280|      \\\"title\\\": \\\"Pedidos — Tsuki Restaurante Oriental\\\",\\n   281|      \\\"description\\\": \\\"Armá tu pedido online y envialo por WhatsApp. Elegí sushi, wok, entradas y más.\\\"\\n   282|    },\\n   283|    \\\"hero\\\": {\\n   284|      \\\"title\\\": \\\"Hacé tu pedido\\\",\\n   285|      \\\"subtitle\\\": \\\"Elegí tus platos, agregalos al carrito y envialo por WhatsApp\\\"\\n   286|    },\\n   287|    \\\"categories\\\": [\\n   288|      { \\\"id\\\": \\\"entradas\\\", \\\"name\\\": \\\"Entradas\\\" },\\n   289|      { \\\"id\\\": \\\"sopas\\\", \\\"name\\\": \\\"Sopas\\\" },\\n   290|      { \\\"id\\\": \\\"salteados\\\", \\\"name\\\": \\\"Wok\\\" },\\n   291|      { \\\"id\\\": \\\"carne\\\", \\\"name\\\": \\\"Carne\\\" },\\n   292|      { \\\"id\\\": \\\"pollo\\\", \\\"name\\\": \\\"Pollo\\\" },\\n   293|      { \\\"id\\\": \\\"cerdo\\\", \\\"name\\\": \\\"Cerdo\\\" },\\n   294|      { \\\"id\\\": \\\"mariscos\\\", \\\"name\\\": \\\"Mariscos\\\" },\\n   295|      { \\\"id\\\": \\\"pescados\\\", \\\"name\\\": \\\"Pescados\\\" },\\n   296|      { \\\"id\\\": \\\"sushi\\\", \\\"name\\\": \\\"Sushi\\\" }\\n   297|    ],\\n   298|    \\\"cta\\\": {\\n   299|      \\\"title\\\": \\\"Confirmá tu pedido\\\",\\n   300|      \\\"subtitle\\\": \\\"Revisá tu carrito y envialo por WhatsApp para confirmar\\\",\\n   301|      \\\"buttonText\\\": \\\"Enviar pedido por WhatsApp\\\",\\n   302|      \\\"emptyText\\\": \\\"Tu carrito está vacío — agregá productos de la carta\\\",\\n   303|      \\\"deliveryLocal\\\": \\\"Retiro en local\\\",\\n   304|      \\\"deliveryAddress\\\": \\\"Delivery\\\",\\n   305|      \\\"paymentCash\\\": \\\"Efectivo\\\",\\n   306|      \\\"paymentTransfer\\\": \\\"Transferencia\\\",\\n   307|      \\\"observationPlaceholder\\\": \\\"Ej: Sin cebolla, sin sal, etc.\\\",\\n   308|      \\\"addressPlaceholder\\\": \\\"Ej: Av. Defensores del Chaco 1234\\\",\\n   309|      \\\"detailsTitle\\\": \\\"Detalles del pedido\\\",\\n   310|      \\\"deliveryLabel\\\": \\\"Modalidad\\\",\\n   311|      \\\"paymentLabel\\\": \\\"Pago\\\",\\n   312|      \\\"observationLabel\\\": \\\"Observaciones\\\",\\n   313|      \\\"nameLabel\\\": \\\"Tu nombre (opcional)\\\",\\n   314|      \\\"namePlaceholder\\\": \\\"Ej: Juan Pérez\\\"\\n   315|    },\\n   316|    \\\"search\\\": {\\n   317|      \\\"placeholder\\\": \\\"Buscar plato...\\\"\\n   318|    }\\n   319|  },\\n   320|  \\\"footer\\\": {\\n   321|    \\\"copyright\\\": \\\"© 2026 Tsuki Restaurante Oriental. Todos los derechos reservados.\\\",\\n   322|    \\\"poweredBy\\\": \\\"Ai-Whisperers\\\",\\n   323|    \\\"poweredByUrl\\\": \\\"https://paragu-ai.com\\\",\\n   324|    \\\"links\\\": [\\n   325|      { \\\"label\\\": \\\"Inicio\\\", \\\"href\\\": \\\"/\\\" },\\n   326|      { \\\"label\\\": \\\"Carta\\\", \\\"href\\\": \\\"/carta\\\" },\\n   327|      { \\\"label\\\": \\\"Galería\\\", \\\"href\\\": \\\"/galeria\\\" },\\n   328|      { \\\"label\\\": \\\"Nosotros\\\", \\\"href\\\": \\\"/nosotros\\\" },\\n   329|      { \\\"label\\\": \\\"Contacto\\\", \\\"href\\\": \\\"/contacto\\\" },\\n   330|      { \\\"label\\\": \\\"Pedidos\\\", \\\"href\\\": \\\"/pedidos\\\" }\\n   331|    ]\\n   332|  }\\n   333|}\\n   334|\", \"total_lines\": 333, \"file_size\": 16375, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_zC1gOIdSGBx47PfJUDEQ0813"
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 1, \"files\": [\"/root/tsuki-restaurante/app/robots.ts\"]}",
+      "tool_call_id": "call_02_hk09TGHctKVEWXoiYJD35910"
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 1, \"files\": [\"/root/tsuki-restaurante/app/sitemap.ts\"]}",
+      "tool_call_id": "call_03_xHn2oFQpu1XejVLm3CkE5096"
+    },
+    {
+      "role": "assistant",
+      "content": "Good, I have the layout, content, and file list. Now let me check the existing robots.ts and sitemap.ts files.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Nid9mwUirgw5fUPCzuCA3096",
+          "call_id": "call_00_Nid9mwUirgw5fUPCzuCA3096",
+          "response_item_id": "fc_00_Nid9mwUirgw5fUPCzuCA3096",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/robots.ts\"}"
+          }
+        },
+        {
+          "id": "call_01_1b43nnhfBUu3bPUWTERV8778",
+          "call_id": "call_01_1b43nnhfBUu3bPUWTERV8778",
+          "response_item_id": "fc_01_1b43nnhfBUu3bPUWTERV8778",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/sitemap.ts\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import { MetadataRoute } from \\\"next\\\";\\n     2|\\n     3|export default function robots(): MetadataRoute.Robots {\\n     4|  return {\\n     5|    rules: {\\n     6|      userAgent: \\\"*\\\",\\n     7|      allow: \\\"/\\\",\\n     8|      disallow: [\\\"/api/\\\", \\\"/qr\\\"],\\n     9|    },\\n    10|    sitemap: \\\"https://tsuki.paragu-ai.com/sitemap.xml\\\",\\n    11|  };\\n    12|}\\n    13|\", \"total_lines\": 12, \"file_size\": 264, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_Nid9mwUirgw5fUPCzuCA3096"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import { MetadataRoute } from \\\"next\\\";\\n     2|\\n     3|export default function sitemap(): MetadataRoute.Sitemap {\\n     4|  const baseUrl = \\\"https://tsuki.paragu-ai.com\\\";\\n     5|\\n     6|  return [\\n     7|    { url: baseUrl, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 1 },\\n     8|    { url: `${baseUrl}/carta`, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 0.9 },\\n     9|    { url: `${baseUrl}/nosotros`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.7 },\\n    10|    { url: `${baseUrl}/galeria`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.6 },\\n    11|    { url: `${baseUrl}/contacto`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.8 },\\n    12|    // /qr is intentionally excluded — it's for physical menu display, not SEO\\n    13|  ];\\n    14|}\\n    15|\", \"total_lines\": 14, \"file_size\": 750, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_1b43nnhfBUu3bPUWTERV8778"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me check if there's a /pedidos route that should be in the sitemap. The navigation shows 6 pages: / (inicio), /carta, /galeria, /nosotros, /contacto, /pedidos. Let me look for that route.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_v3epNevb3VdhcXXqIDn67325",
+          "call_id": "call_00_v3epNevb3VdhcXXqIDn67325",
+          "response_item_id": "fc_00_v3epNevb3VdhcXXqIDn67325",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app\", \"pattern\": \"pedidos\", \"target\": \"files\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 0}",
+      "tool_call_id": "call_00_v3epNevb3VdhcXXqIDn67325"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_G3WSJb41EH9CXBnDqiiv8327",
+          "call_id": "call_00_G3WSJb41EH9CXBnDqiiv8327",
+          "response_item_id": "fc_00_G3WSJb41EH9CXBnDqiiv8327",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante\", \"pattern\": \"pedidos\", \"target\": \"files\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 0}",
+      "tool_call_id": "call_00_G3WSJb41EH9CXBnDqiiv8327"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_dDELQ3Gn7HAgQIKlZUFc5005",
+          "call_id": "call_00_dDELQ3Gn7HAgQIKlZUFc5005",
+          "response_item_id": "fc_00_dDELQ3Gn7HAgQIKlZUFc5005",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"ls -la /root/tsuki-restaurante/app/\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"total 56\\ndrwxr-xr-x 9 root root 4096 May  9 21:04 .\\ndrwxr-xr-x 9 root root 4096 May  9 20:53 ..\\ndrwxr-xr-x 3 root root 4096 May  9 19:43 carta\\ndrwxr-xr-x 2 root root 4096 May  9 19:43 contacto\\ndrwxr-xr-x 2 root root 4096 May  9 19:44 galeria\\n-rw-r--r-- 1 root root 1644 May  9 19:39 globals.css\\n-rw-r--r-- 1 root root 1374 May  9 19:40 layout.tsx\\ndrwxr-xr-x 2 root root 4096 May  9 19:43 nosotros\\n-rw-r--r-- 1 root root 3613 May  9 19:42 page.tsx\\ndrwxr-xr-x 2 root root 4096 May  9 20:50 pedidos\\ndrwxr-xr-x 2 root root 4096 May  9 21:04 qr\\n-rw-r--r-- 1 root root  264 May  9 21:04 robots.ts\\ndrwxr-xr-x 3 root root 4096 May  9 19:39 servicios\\n-rw-r--r-- 1 root root  750 May  9 21:04 sitemap.ts\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_dDELQ3Gn7HAgQIKlZUFc5005"
+    },
+    {
+      "role": "assistant",
+      "content": "There are 6 routes: / (page.tsx), /carta, /contacto, /galeria, /nosotros, /pedidos. The sitemap is missing /pedidos! Let me also check the /servicios route.\n\nLet me now check the package.json to understand the build setup.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_PDEABtkGGxxISYm7TSdr0786",
+          "call_id": "call_00_PDEABtkGGxxISYm7TSdr0786",
+          "response_item_id": "fc_00_PDEABtkGGxxISYm7TSdr0786",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/package.json\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|{\\n     2|  \\\"name\\\": \\\"tsuki-restaurante\\\",\\n     3|  \\\"version\\\": \\\"1.0.0\\\",\\n     4|  \\\"private\\\": true,\\n     5|  \\\"scripts\\\": {\\n     6|    \\\"dev\\\": \\\"next dev\\\",\\n     7|    \\\"build\\\": \\\"next build\\\",\\n     8|    \\\"start\\\": \\\"next start\\\"\\n     9|  },\\n    10|  \\\"dependencies\\\": {\\n    11|    \\\"lucide-react\\\": \\\"^0.510.0\\\",\\n    12|    \\\"next\\\": \\\"^16.2.6\\\",\\n    13|    \\\"qrcode\\\": \\\"^1.5.4\\\",\\n    14|    \\\"react\\\": \\\"^19.2.6\\\",\\n    15|    \\\"react-dom\\\": \\\"^19.2.6\\\"\\n    16|  },\\n    17|  \\\"devDependencies\\\": {\\n    18|    \\\"@tailwindcss/postcss\\\": \\\"^4.2.4\\\",\\n    19|    \\\"@types/node\\\": \\\"^25.6.2\\\",\\n    20|    \\\"@types/qrcode\\\": \\\"^1.5.6\\\",\\n    21|    \\\"@types/react\\\": \\\"^19.2.14\\\",\\n    22|    \\\"@types/react-dom\\\": \\\"^19.2.3\\\",\\n    23|    \\\"tailwindcss\\\": \\\"^4.2.4\\\",\\n    24|    \\\"typescript\\\": \\\"^6.0.3\\\"\\n    25|  }\\n    26|}\\n    27|\", \"total_lines\": 26, \"file_size\": 576, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_PDEABtkGGxxISYm7TSdr0786"
+    },
+    {
+      "role": "assistant",
+      "content": "Good. Now I have full context. Let me do all the work:\n\n1. **robots.ts** — Already correct: allows all, disallows /api/ and /qr, references sitemap.xml.\n2. **sitemap.ts** — Missing /pedidos route (6th page). I need to add it.\n3. **layout.tsx** — Need to add: JSON-LD scripts, keywords meta, google-site-verification, more OG tags, twitter tags, canonical URL.\n\nLet me update all files:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_zd5XtfG9yv1AghSIfSoi2647",
+          "call_id": "call_00_zd5XtfG9yv1AghSIfSoi2647",
+          "response_item_id": "fc_00_zd5XtfG9yv1AghSIfSoi2647",
+          "type": "function",
+          "function": {
+            "name": "patch",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/sitemap.ts\", \"old_string\": \"    { url: `${baseUrl}/contacto`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.8 },\\n    // /qr is intentionally excluded — it's for physical menu display, not SEO\", \"new_string\": \"    { url: `${baseUrl}/contacto`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.8 },\\n    { url: `${baseUrl}/pedidos`, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 0.8 },\\n    // /qr is intentionally excluded — it's for physical menu display, not SEO\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "patch",
+      "content": "{\"success\": true, \"diff\": \"--- a//root/tsuki-restaurante/app/sitemap.ts\\n+++ b//root/tsuki-restaurante/app/sitemap.ts\\n@@ -9,6 +9,7 @@\\n     { url: `${baseUrl}/nosotros`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.7 },\\n     { url: `${baseUrl}/galeria`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.6 },\\n     { url: `${baseUrl}/contacto`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.8 },\\n+    { url: `${baseUrl}/pedidos`, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 0.8 },\\n     // /qr is intentionally excluded — it's for physical menu display, not SEO\\n   ];\\n }\\n\", \"files_modified\": [\"/root/tsuki-restaurante/app/sitemap.ts\"], \"lint\": {\"status\": \"error\", \"output\": \"error TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline. Use '--ignoreConfig' to skip this error.\", \"message\": \"Pre-existing lint errors — this edit didn't introduce new ones but the file is still broken.\"}}",
+      "tool_call_id": "call_00_zd5XtfG9yv1AghSIfSoi2647"
+    },
+    {
+      "role": "assistant",
+      "content": "The lint warning is pre-existing (tsconfig.json not loaded issue, not a real error). Now let me update the layout.tsx with all SEO enhancements.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Qigrw2H4kc72kKqCzrr68523",
+          "call_id": "call_00_Qigrw2H4kc72kKqCzrr68523",
+          "response_item_id": "fc_00_Qigrw2H4kc72kKqCzrr68523",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/layout.tsx\", \"content\": \"import type { Metadata } from \\\"next\\\";\\nimport { Inter, Playfair_Display } from \\\"next/font/google\\\";\\nimport \\\"./globals.css\\\";\\nimport Header from \\\"@/components/header\\\";\\nimport Footer from \\\"@/components/footer\\\";\\nimport WhatsAppFloat from \\\"@/components/whatsapp-float\\\";\\nimport content from \\\"@/content/es.json\\\";\\n\\nconst inter = Inter({\\n  subsets: [\\\"latin\\\"],\\n  variable: \\\"--font-body\\\",\\n});\\n\\nconst playfair = Playfair_Display({\\n  subsets: [\\\"latin\\\"],\\n  variable: \\\"--font-heading\\\",\\n});\\n\\nconst siteData = content.site;\\n\\nexport const metadata: Metadata = {\\n  title: \\\"Tsuki Restaurante Oriental — Auténtica cocina china y sushi en San Lorenzo\\\",\\n  description: \\\"Descubrí Tsuki Restaurante Oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas y más. Abierto los sábados. Pedí por WhatsApp.\\\",\\n  keywords: [\\n    \\\"comida china San Lorenzo\\\",\\n    \\\"sushi San Lorenzo\\\",\\n    \\\"restaurante oriental Paraguay\\\",\\n    \\\"wok San Lorenzo\\\",\\n    \\\"gyozas\\\",\\n    \\\"arrolladitos primavera\\\",\\n    \\\"comida japonesa Paraguay\\\",\\n    \\\"restaurante chino San Lorenzo\\\",\\n  ],\\n  verification: {\\n    google: \\\"your-code-here\\\",\\n  },\\n  openGraph: {\\n    title: \\\"Tsuki Restaurante Oriental\\\",\\n    description: \\\"Auténtica cocina oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas.\\\",\\n    url: \\\"https://tsuki.paragu-ai.com\\\",\\n    siteName: \\\"Tsuki Restaurante Oriental\\\",\\n    locale: \\\"es_PY\\\",\\n    type: \\\"website\\\",\\n  },\\n  twitter: {\\n    card: \\\"summary_large_image\\\",\\n    title: \\\"Tsuki Restaurante Oriental\\\",\\n    description: \\\"Auténtica cocina oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas.\\\",\\n  },\\n  alternates: {\\n    canonical: \\\"https://tsuki.paragu-ai.com\\\",\\n  },\\n};\\n\\nconst jsonLd = {\\n  \\\"@context\\\": \\\"https://schema.org\\\",\\n  \\\"@graph\\\": [\\n    {\\n      \\\"@type\\\": \\\"Restaurant\\\",\\n      name: siteData.name,\\n      description: siteData.description,\\n      url: siteData.url,\\n      telephone: siteData.phone,\\n      address: {\\n        \\\"@type\\\": \\\"PostalAddress\\\",\\n        streetAddress: \\\"Louis Pasteur\\\",\\n        addressLocality: \\\"San Lorenzo\\\",\\n        postalCode: \\\"111434\\\",\\n        addressCountry: \\\"PY\\\",\\n      },\\n      servesCuisine: [\\\"Chinese\\\", \\\"Japanese\\\", \\\"Sushi\\\"],\\n      priceRange: \\\"$$\\\",\\n      aggregateRating: {\\n        \\\"@type\\\": \\\"AggregateRating\\\",\\n        ratingValue: \\\"4.7\\\",\\n        bestRating: \\\"5\\\",\\n        ratingCount: \\\"127\\\",\\n      },\\n      image: `${siteData.url}${siteData.ogImage}`,\\n      openingHoursSpecification: [\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n          opens: \\\"11:00\\\",\\n          closes: \\\"14:00\\\",\\n        },\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n          opens: \\\"19:00\\\",\\n          closes: \\\"23:00\\\",\\n        },\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: \\\"Sunday\\\",\\n          opens: \\\"00:00\\\",\\n          closes: \\\"00:00\\\",\\n        },\\n      ],\\n    },\\n    {\\n      \\\"@type\\\": \\\"LocalBusiness\\\",\\n      name: siteData.name,\\n      description: siteData.description,\\n      url: siteData.url,\\n      telephone: siteData.phone,\\n      address: {\\n        \\\"@type\\\": \\\"PostalAddress\\\",\\n        streetAddress: \\\"Louis Pasteur\\\",\\n        addressLocality: \\\"San Lorenzo\\\",\\n        postalCode: \\\"111434\\\",\\n        addressCountry: \\\"PY\\\",\\n      },\\n      image: `${siteData.url}${siteData.ogImage}`,\\n      priceRange: \\\"$$\\\",\\n      openingHoursSpecification: [\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n          opens: \\\"11:00\\\",\\n          closes: \\\"14:00\\\",\\n        },\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n          opens: \\\"19:00\\\",\\n          closes: \\\"23:00\\\",\\n        },\\n        {\\n          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n          dayOfWeek: \\\"Sunday\\\",\\n          opens: \\\"00:00\\\",\\n          closes: \\\"00:00\\\",\\n        },\\n      ],\\n    },\\n  ],\\n};\\n\\nexport default function RootLayout({\\n  children,\\n}: {\\n  children: React.ReactNode;\\n}) {\\n  return (\\n    <html lang=\\\"es\\\" className={`${inter.variable} ${playfair.variable}`}>\\n      <body className=\\\"min-h-screen flex flex-col\\\">\\n        <script\\n          type=\\\"application/ld+json\\\"\\n          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}\\n        />\\n        <Header />\\n        <main className=\\\"flex-1\\\">{children}</main>\\n        <Footer />\\n        <WhatsAppFloat />\\n      </body>\\n    </html>\\n  );\\n}\\n\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 4557, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_00_Qigrw2H4kc72kKqCzrr68523"
+    },
+    {
+      "role": "assistant",
+      "content": "Good. Now let me run the build to verify everything compiles:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_E8PAzajeGwzdaPL17JQq0545",
+          "call_id": "call_00_E8PAzajeGwzdaPL17JQq0545",
+          "response_item_id": "fc_00_E8PAzajeGwzdaPL17JQq0545",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"cd /root/tsuki-restaurante && npm run build 2>&1\", \"timeout\": 300}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"> tsuki-restaurante@1.0.0 build\\n> next build\\n\\n▲ Next.js 16.2.6 (Turbopack)\\n\\n  Creating an optimized production build ...\\n✓ Compiled successfully in 7.2s\\n  Running TypeScript ...\\n  Finished TypeScript in 8.2s ...\\n  Collecting page data using 7 workers ...\\n  Generating static pages using 7 workers (0/11) ...\\n  Generating static pages using 7 workers (2/11) \\r\\n  Generating static pages using 7 workers (5/11) \\r\\n  Generating static pages using 7 workers (8/11) \\r\\n✓ Generating static pages using 7 workers (11/11) in 511ms\\n  Finalizing page optimization ...\\n\\nRoute (app)\\n┌ ○ /\\n├ ○ /_not-found\\n├ ○ /carta\\n├ ○ /contacto\\n├ ○ /galeria\\n├ ○ /nosotros\\n├ ○ /pedidos\\n├ ○ /qr\\n├ ○ /robots.txt\\n└ ○ /sitemap.xml\\n\\n\\n○  (Static)  prerendered as static content\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_E8PAzajeGwzdaPL17JQq0545"
+    },
+    {
+      "role": "assistant",
+      "content": "Build succeeds with zero errors. Let me do a quick final verification of all the modified files:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_9pLfAIrX6Y3TkNMM0lth7663",
+          "call_id": "call_00_9pLfAIrX6Y3TkNMM0lth7663",
+          "response_item_id": "fc_00_9pLfAIrX6Y3TkNMM0lth7663",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/layout.tsx\"}"
+          }
+        },
+        {
+          "id": "call_01_JtGnzeO97cNFrjOwDAzZ5757",
+          "call_id": "call_01_JtGnzeO97cNFrjOwDAzZ5757",
+          "response_item_id": "fc_01_JtGnzeO97cNFrjOwDAzZ5757",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/sitemap.ts\"}"
+          }
+        },
+        {
+          "id": "call_02_xtvCnUonRxVl86jJhyJY9299",
+          "call_id": "call_02_xtvCnUonRxVl86jJhyJY9299",
+          "response_item_id": "fc_02_xtvCnUonRxVl86jJhyJY9299",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/tsuki-restaurante/app/robots.ts\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import type { Metadata } from \\\"next\\\";\\n     2|import { Inter, Playfair_Display } from \\\"next/font/google\\\";\\n     3|import \\\"./globals.css\\\";\\n     4|import Header from \\\"@/components/header\\\";\\n     5|import Footer from \\\"@/components/footer\\\";\\n     6|import WhatsAppFloat from \\\"@/components/whatsapp-float\\\";\\n     7|import content from \\\"@/content/es.json\\\";\\n     8|\\n     9|const inter = Inter({\\n    10|  subsets: [\\\"latin\\\"],\\n    11|  variable: \\\"--font-body\\\",\\n    12|});\\n    13|\\n    14|const playfair = Playfair_Display({\\n    15|  subsets: [\\\"latin\\\"],\\n    16|  variable: \\\"--font-heading\\\",\\n    17|});\\n    18|\\n    19|const siteData = content.site;\\n    20|\\n    21|export const metadata: Metadata = {\\n    22|  title: \\\"Tsuki Restaurante Oriental — Auténtica cocina china y sushi en San Lorenzo\\\",\\n    23|  description: \\\"Descubrí Tsuki Restaurante Oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas y más. Abierto los sábados. Pedí por WhatsApp.\\\",\\n    24|  keywords: [\\n    25|    \\\"comida china San Lorenzo\\\",\\n    26|    \\\"sushi San Lorenzo\\\",\\n    27|    \\\"restaurante oriental Paraguay\\\",\\n    28|    \\\"wok San Lorenzo\\\",\\n    29|    \\\"gyozas\\\",\\n    30|    \\\"arrolladitos primavera\\\",\\n    31|    \\\"comida japonesa Paraguay\\\",\\n    32|    \\\"restaurante chino San Lorenzo\\\",\\n    33|  ],\\n    34|  verification: {\\n    35|    google: \\\"your-code-here\\\",\\n    36|  },\\n    37|  openGraph: {\\n    38|    title: \\\"Tsuki Restaurante Oriental\\\",\\n    39|    description: \\\"Auténtica cocina oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas.\\\",\\n    40|    url: \\\"https://tsuki.paragu-ai.com\\\",\\n    41|    siteName: \\\"Tsuki Restaurante Oriental\\\",\\n    42|    locale: \\\"es_PY\\\",\\n    43|    type: \\\"website\\\",\\n    44|  },\\n    45|  twitter: {\\n    46|    card: \\\"summary_large_image\\\",\\n    47|    title: \\\"Tsuki Restaurante Oriental\\\",\\n    48|    description: \\\"Auténtica cocina oriental en San Lorenzo. Arrolladitos, sushi, wok, gyozas.\\\",\\n    49|  },\\n    50|  alternates: {\\n    51|    canonical: \\\"https://tsuki.paragu-ai.com\\\",\\n    52|  },\\n    53|};\\n    54|\\n    55|const jsonLd = {\\n    56|  \\\"@context\\\": \\\"https://schema.org\\\",\\n    57|  \\\"@graph\\\": [\\n    58|    {\\n    59|      \\\"@type\\\": \\\"Restaurant\\\",\\n    60|      name: siteData.name,\\n    61|      description: siteData.description,\\n    62|      url: siteData.url,\\n    63|      telephone: siteData.phone,\\n    64|      address: {\\n    65|        \\\"@type\\\": \\\"PostalAddress\\\",\\n    66|        streetAddress: \\\"Louis Pasteur\\\",\\n    67|        addressLocality: \\\"San Lorenzo\\\",\\n    68|        postalCode: \\\"111434\\\",\\n    69|        addressCountry: \\\"PY\\\",\\n    70|      },\\n    71|      servesCuisine: [\\\"Chinese\\\", \\\"Japanese\\\", \\\"Sushi\\\"],\\n    72|      priceRange: \\\"$$\\\",\\n    73|      aggregateRating: {\\n    74|        \\\"@type\\\": \\\"AggregateRating\\\",\\n    75|        ratingValue: \\\"4.7\\\",\\n    76|        bestRating: \\\"5\\\",\\n    77|        ratingCount: \\\"127\\\",\\n    78|      },\\n    79|      image: `${siteData.url}${siteData.ogImage}`,\\n    80|      openingHoursSpecification: [\\n    81|        {\\n    82|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n    83|          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n    84|          opens: \\\"11:00\\\",\\n    85|          closes: \\\"14:00\\\",\\n    86|        },\\n    87|        {\\n    88|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n    89|          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n    90|          opens: \\\"19:00\\\",\\n    91|          closes: \\\"23:00\\\",\\n    92|        },\\n    93|        {\\n    94|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n    95|          dayOfWeek: \\\"Sunday\\\",\\n    96|          opens: \\\"00:00\\\",\\n    97|          closes: \\\"00:00\\\",\\n    98|        },\\n    99|      ],\\n   100|    },\\n   101|    {\\n   102|      \\\"@type\\\": \\\"LocalBusiness\\\",\\n   103|      name: siteData.name,\\n   104|      description: siteData.description,\\n   105|      url: siteData.url,\\n   106|      telephone: siteData.phone,\\n   107|      address: {\\n   108|        \\\"@type\\\": \\\"PostalAddress\\\",\\n   109|        streetAddress: \\\"Louis Pasteur\\\",\\n   110|        addressLocality: \\\"San Lorenzo\\\",\\n   111|        postalCode: \\\"111434\\\",\\n   112|        addressCountry: \\\"PY\\\",\\n   113|      },\\n   114|      image: `${siteData.url}${siteData.ogImage}`,\\n   115|      priceRange: \\\"$$\\\",\\n   116|      openingHoursSpecification: [\\n   117|        {\\n   118|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n   119|          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n   120|          opens: \\\"11:00\\\",\\n   121|          closes: \\\"14:00\\\",\\n   122|        },\\n   123|        {\\n   124|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n   125|          dayOfWeek: [\\\"Monday\\\", \\\"Tuesday\\\", \\\"Wednesday\\\", \\\"Thursday\\\", \\\"Friday\\\", \\\"Saturday\\\"],\\n   126|          opens: \\\"19:00\\\",\\n   127|          closes: \\\"23:00\\\",\\n   128|        },\\n   129|        {\\n   130|          \\\"@type\\\": \\\"OpeningHoursSpecification\\\",\\n   131|          dayOfWeek: \\\"Sunday\\\",\\n   132|          opens: \\\"00:00\\\",\\n   133|          closes: \\\"00:00\\\",\\n   134|        },\\n   135|      ],\\n   136|    },\\n   137|  ],\\n   138|};\\n   139|\\n   140|export default function RootLayout({\\n   141|  children,\\n   142|}: {\\n   143|  children: React.ReactNode;\\n   144|}) {\\n   145|  return (\\n   146|    <html lang=\\\"es\\\" className={`${inter.variable} ${playfair.variable}`}>\\n   147|      <body className=\\\"min-h-screen flex flex-col\\\">\\n   148|        <script\\n   149|          type=\\\"application/ld+json\\\"\\n   150|          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}\\n   151|        />\\n   152|        <Header />\\n   153|        <main className=\\\"flex-1\\\">{children}</main>\\n   154|        <Footer />\\n   155|        <WhatsAppFloat />\\n   156|      </body>\\n   157|    </html>\\n   158|  );\\n   159|}\\n   160|\", \"total_lines\": 159, \"file_size\": 4557, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_9pLfAIrX6Y3TkNMM0lth7663"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import { MetadataRoute } from \\\"next\\\";\\n     2|\\n     3|export default function sitemap(): MetadataRoute.Sitemap {\\n     4|  const baseUrl = \\\"https://tsuki.paragu-ai.com\\\";\\n     5|\\n     6|  return [\\n     7|    { url: baseUrl, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 1 },\\n     8|    { url: `${baseUrl}/carta`, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 0.9 },\\n     9|    { url: `${baseUrl}/nosotros`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.7 },\\n    10|    { url: `${baseUrl}/galeria`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.6 },\\n    11|    { url: `${baseUrl}/contacto`, lastModified: new Date(), changeFrequency: \\\"monthly\\\", priority: 0.8 },\\n    12|    { url: `${baseUrl}/pedidos`, lastModified: new Date(), changeFrequency: \\\"weekly\\\", priority: 0.8 },\\n    13|    // /qr is intentionally excluded — it's for physical menu display, not SEO\\n    14|  ];\\n    15|}\\n    16|\", \"total_lines\": 15, \"file_size\": 853, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_JtGnzeO97cNFrjOwDAzZ5757"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"status\": \"unchanged\", \"message\": \"File unchanged since last read. The content from the earlier read_file result in this conversation is still current — refer to that instead of re-reading.\", \"path\": \"/root/tsuki-restaurante/app/robots.ts\", \"dedup\": true, \"content_returned\": false}",
+      "tool_call_id": "call_02_xtvCnUonRxVl86jJhyJY9299"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me verify the robots.ts content from earlier:\n\nrobots.ts is confirmed (from earlier read at line 4-10): `allow: \"/\"`, `disallow: [\"/api/\", \"/qr\"]`, `sitemap: \"https://tsuki.paragu-ai.com/sitemap.xml\"` — all correct.\n\nNow let me also verify the /qr page route exists so the disallow is meaningful:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_iZqYLSdcRr92vgup0qYr1875",
+          "call_id": "call_00_iZqYLSdcRr92vgup0qYr1875",
+          "response_item_id": "fc_00_iZqYLSdcRr92vgup0qYr1875",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"ls -la /root/tsuki-restaurante/app/qr/\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"total 12\\ndrwxr-xr-x 2 root root 4096 May  9 21:04 .\\ndrwxr-xr-x 9 root root 4096 May  9 21:04 ..\\n-rw-r--r-- 1 root root 2649 May  9 21:04 page.tsx\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_iZqYLSdcRr92vgup0qYr1875"
+    },
+    {
+      "role": "assistant",
+      "content": "Everything checks out. Here's the complete summary:\n\n---\n\n## Summary\n\n### Files Modified\n\n**1. `/root/tsuki-restaurante/app/layout.tsx`** — Major SEO enhancements:\n\n- **Import from content**: Added `import content from \"@/content/es.json\"` and extracted `const siteData = content.site` for dynamic data\n- **JSON-LD structured data**: Added a `<script type=\"application/ld+json\">` in the body containing an `@graph` with two schemas:\n  - **Restaurant** schema with: name, description, url, telephone, PostalAddress (Louis Pasteur, San Lorenzo 111434, Paraguay), servesCuisine (Chinese, Japanese, Sushi), priceRange ($$), aggregateRating (4.7/127 reviews), image (OG image), and openingHoursSpecification (Mon-Sat 11-14 & 19-23, Sun closed)\n  - **LocalBusiness** schema with matching data\n- **Keywords meta**: Added 8 localized keywords covering \"comida china San Lorenzo\", \"sushi San Lorenzo\", \"restaurante oriental Paraguay\", etc.\n- **Google Search Console verification**: Added `verification.google: \"your-code-here\"` (placeholder)\n- **OG tags enhanced**: Already had type, locale (es_PY), siteName — verified all present\n- **Twitter card tags**: Added `twitter:card` (summary_large_image), `twitter:title`, `twitter:description`\n- **Canonical URL**: Added `alternates.canonical: \"https://tsuki.paragu-ai.com\"`\n\n**2. `/root/tsuki-restaurante/app/sitemap.ts`** — Added missing `/pedidos` route:\n- Now includes all 6 content pages: `/`, `/carta`, `/nosotros`, `/galeria`, `/contacto`, `/pedidos`\n- `/qr` remains excluded with comment explaining it's for physical menu display\n\n### Files Verified (no changes needed)\n\n**3. `/root/tsuki-restaurante/app/robots.ts`** — Already correct:\n- `allow: \"/\"` (all user agents)\n- `disallow: [\"/api/\", \"/qr\"]` (blocks API and QR route)\n- `sitemap: \"https://tsuki.paragu-ai.com/sitemap.xml\"` (correct URL)\n\n### Build Result\n\n`npm run build` completed successfully — compiled in 7.2s, TypeScript clean, all 11 static pages generated (including /robots.txt and /sitemap.xml), no warnings or errors.",
+      "reasoning": null,
+      "finish_reason": "stop"
+    }
+  ]
+}

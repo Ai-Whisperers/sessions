@@ -1,0 +1,889 @@
+{
+  "session_id": "20260508_225649_a30d43",
+  "model": "deepseek-chat",
+  "base_url": "https://api.deepseek.com/v1",
+  "platform": "cli",
+  "session_start": "2026-05-08T22:56:49.692938",
+  "last_updated": "2026-05-08T22:59:15.458813",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nIf the user asks about configuring, setting up, or using Hermes Agent itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') before answering. Docs: https://hermes-agent.nousresearch.com/docs\n\nConversation started: Friday, May 08, 2026 10:56 PM\nModel: deepseek-chat\nProvider: custom\n\nYou are a CLI AI Agent. Try not to use markdown but simple text renderable inside a terminal. File delivery: there is no attachment channel — the user reads your response directly in their terminal. Do NOT emit MEDIA:/path tags (those are only intercepted on messaging platforms like Telegram, Discord, Slack, etc.; on the CLI they render as literal text). When referring to a file you created or changed, just state its absolute path in plain text; the user can open it from there.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "patch",
+        "description": "Targeted find-and-replace edits in files. Use this instead of sed/awk in terminal. Uses fuzzy matching (9 strategies) so minor whitespace/indentation differences won't break it. Returns a unified diff. Auto-runs syntax checks after editing.\n\nReplace mode (default): find a unique string and replace it.\nPatch mode: apply V4A multi-file patches for bulk changes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "replace",
+                "patch"
+              ],
+              "description": "Edit mode: 'replace' for targeted find-and-replace, 'patch' for V4A multi-file patches",
+              "default": "replace"
+            },
+            "path": {
+              "type": "string",
+              "description": "File path to edit (required for 'replace' mode)"
+            },
+            "old_string": {
+              "type": "string",
+              "description": "Text to find in the file (required for 'replace' mode). Must be unique in the file unless replace_all=true. Include enough surrounding context to ensure uniqueness."
+            },
+            "new_string": {
+              "type": "string",
+              "description": "Replacement text (required for 'replace' mode). Can be empty string to delete the matched text."
+            },
+            "replace_all": {
+              "type": "boolean",
+              "description": "Replace all occurrences instead of requiring a unique match (default: false)",
+              "default": false
+            },
+            "patch": {
+              "type": "string",
+              "description": "V4A format patch content (required for 'patch' mode). Format:\n*** Begin Patch\n*** Update File: path/to/file\n@@ context hint @@\n context line\n-removed line\n+added line\n*** End Patch"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to read (absolute, relative, or ~/path)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line number to start reading from (1-indexed, default: 1)",
+              "default": 1,
+              "minimum": 1
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of lines to read (default: 500, max: 2000)",
+              "default": 500,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Search file contents or find files by name. Use this instead of grep/rg/find/ls in terminal. Ripgrep-backed, faster than shell equivalents.\n\nContent search (target='content'): Regex search inside files. Output modes: full matches with line numbers, file paths only, or match counts.\n\nFile search (target='files'): Find files by glob pattern (e.g., '*.py', '*config*'). Also use this instead of ls — results sorted by modification time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex pattern for content search, or glob pattern (e.g., '*.py') for file search"
+            },
+            "target": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files"
+              ],
+              "description": "'content' searches inside file contents, 'files' searches for files by name",
+              "default": "content"
+            },
+            "path": {
+              "type": "string",
+              "description": "Directory or file to search in (default: current working directory)",
+              "default": "."
+            },
+            "file_glob": {
+              "type": "string",
+              "description": "Filter files by pattern in grep mode (e.g., '*.py' to only search Python files)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 50)",
+              "default": 50
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Skip first N results for pagination (default: 0)",
+              "default": 0
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_only",
+                "count"
+              ],
+              "description": "Output format for grep mode: 'content' shows matching lines with line numbers, 'files_only' lists file paths, 'count' shows match counts per file",
+              "default": "content"
+            },
+            "context": {
+              "type": "integer",
+              "description": "Number of context lines before and after each match (grep mode only)",
+              "default": 0
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write content to a file, completely replacing existing content. Use this instead of echo/cat heredoc in terminal. Creates parent directories automatically. OVERWRITES the entire file — use 'patch' for targeted edits. Auto-runs syntax checks on .py/.json/.yaml/.toml and other linted languages; only NEW errors introduced by this write are surfaced (pre-existing errors are filtered out).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write (will be created if it doesn't exist, overwritten if it does)"
+            },
+            "content": {
+              "type": "string",
+              "description": "Complete content to write to the file"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 44,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create all 13 missing component files for the escribania site."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me start by examining the existing components to understand the patterns used.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_hn4QSERpu8OvmVbQRHAE7016",
+          "call_id": "call_00_hn4QSERpu8OvmVbQRHAE7016",
+          "response_item_id": "fc_00_hn4QSERpu8OvmVbQRHAE7016",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components\"}"
+          }
+        },
+        {
+          "id": "call_01_QteBEOYiJYZ7fWhAakDB2991",
+          "call_id": "call_01_QteBEOYiJYZ7fWhAakDB2991",
+          "response_item_id": "fc_01_QteBEOYiJYZ7fWhAakDB2991",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"pattern\": \"*.tsx\", \"target\": \"files\", \"path\": \"/root/escribania-paraguay/components\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"\", \"total_lines\": 0, \"file_size\": 0, \"truncated\": false, \"is_binary\": false, \"is_image\": false, \"error\": \"File not found: /root/escribania-paraguay/components\", \"similar_files\": [\"/root/escribania-paraguay/components\"]}",
+      "tool_call_id": "call_00_hn4QSERpu8OvmVbQRHAE7016"
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 13, \"files\": [\"/root/escribania-paraguay/components/whatsapp-float.tsx\", \"/root/escribania-paraguay/components/footer.tsx\", \"/root/escribania-paraguay/components/contact-section.tsx\", \"/root/escribania-paraguay/components/cta-banner.tsx\", \"/root/escribania-paraguay/components/faq-section.tsx\", \"/root/escribania-paraguay/components/trust-section.tsx\", \"/root/escribania-paraguay/components/testimonials-section.tsx\", \"/root/escribania-paraguay/components/stats-section.tsx\", \"/root/escribania-paraguay/components/process-section.tsx\", \"/root/escribania-paraguay/components/services-preview.tsx\", \"/root/escribania-paraguay/components/header.tsx\", \"/root/escribania-paraguay/components/animations/scroll-reveal.tsx\", \"/root/escribania-paraguay/components/hero.tsx\"]}",
+      "tool_call_id": "call_01_QteBEOYiJYZ7fWhAakDB2991"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_5T9zT793U8niSdOkWN629545",
+          "call_id": "call_00_5T9zT793U8niSdOkWN629545",
+          "response_item_id": "fc_00_5T9zT793U8niSdOkWN629545",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/faq-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_01_3EpEEZ6ucwZx5Qd5N4Wd0527",
+          "call_id": "call_01_3EpEEZ6ucwZx5Qd5N4Wd0527",
+          "response_item_id": "fc_01_3EpEEZ6ucwZx5Qd5N4Wd0527",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/trust-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_02_rO6p8a9aPopCausV811I8485",
+          "call_id": "call_02_rO6p8a9aPopCausV811I8485",
+          "response_item_id": "fc_02_rO6p8a9aPopCausV811I8485",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/services-preview.tsx\"}"
+          }
+        },
+        {
+          "id": "call_03_wk7vVq6rlzmFWVS7lroH9434",
+          "call_id": "call_03_wk7vVq6rlzmFWVS7lroH9434",
+          "response_item_id": "fc_03_wk7vVq6rlzmFWVS7lroH9434",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/process-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_04_DVnpzw4rtPwhfshnT8gq2230",
+          "call_id": "call_04_DVnpzw4rtPwhfshnT8gq2230",
+          "response_item_id": "fc_04_DVnpzw4rtPwhfshnT8gq2230",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/hero.tsx\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|'use client'\\n     2|\\n     3|import { useState } from 'react'\\n     4|import { ChevronDown } from 'lucide-react'\\n     5|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     6|\\n     7|interface FAQItem {\\n     8|  q: string\\n     9|  a: string\\n    10|}\\n    11|\\n    12|interface FAQSectionProps {\\n    13|  title: string\\n    14|  subtitle: string\\n    15|  items: FAQItem[]\\n    16|}\\n    17|\\n    18|export default function FAQSection({\\n    19|  title,\\n    20|  subtitle,\\n    21|  items,\\n    22|}: FAQSectionProps) {\\n    23|  const [openIndex, setOpenIndex] = useState<number | null>(null)\\n    24|\\n    25|  const toggle = (index: number) => {\\n    26|    setOpenIndex(openIndex === index ? null : index)\\n    27|  }\\n    28|\\n    29|  return (\\n    30|    <section className=\\\"bg-surface section-padding\\\">\\n    31|      <div className=\\\"container-page\\\">\\n    32|        <div className=\\\"text-center mb-14\\\">\\n    33|          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n    34|            {title}\\n    35|          </h2>\\n    36|          <p className=\\\"text-muted text-lg max-w-2xl mx-auto\\\">{subtitle}</p>\\n    37|        </div>\\n    38|\\n    39|        <div className=\\\"max-w-3xl mx-auto space-y-3\\\">\\n    40|          {items.map((item, i) => (\\n    41|            <ScrollReveal key={i} delay={i * 50}>\\n    42|              <div className=\\\"border border-border rounded-xl overflow-hidden transition-all duration-200\\\">\\n    43|                <button\\n    44|                  onClick={() => toggle(i)}\\n    45|                  className={`w-full flex items-center justify-between text-left px-6 py-4 md:py-5 transition-colors ${\\n    46|                    openIndex === i\\n    47|                      ? 'bg-accent/5 text-foreground'\\n    48|                      : 'bg-surface-alt hover:bg-surface-alt/80 text-foreground'\\n    49|                  }`}\\n    50|                >\\n    51|                  <span className=\\\"font-accent font-medium text-sm md:text-base pr-4\\\">\\n    52|                    {item.q}\\n    53|                  </span>\\n    54|                  <ChevronDown\\n    55|                    size={18}\\n    56|                    className={`flex-shrink-0 text-accent transition-transform duration-300 ${\\n    57|                      openIndex === i ? 'rotate-180' : ''\\n    58|                    }`}\\n    59|                  />\\n    60|                </button>\\n    61|                <div\\n    62|                  className={`overflow-hidden transition-all duration-300 ease-in-out ${\\n    63|                    openIndex === i ? 'max-h-96' : 'max-h-0'\\n    64|                  }`}\\n    65|                >\\n    66|                  <div className=\\\"px-6 pb-5 pt-2 text-muted text-sm leading-relaxed\\\">\\n    67|                    {item.a}\\n    68|                  </div>\\n    69|                </div>\\n    70|              </div>\\n    71|            </ScrollReveal>\\n    72|          ))}\\n    73|        </div>\\n    74|      </div>\\n    75|    </section>\\n    76|  )\\n    77|}\\n    78|\", \"total_lines\": 77, \"file_size\": 2468, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_5T9zT793U8niSdOkWN629545"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import {\\n     2|  ShieldCheck,\\n     3|  Gavel,\\n     4|  Archive,\\n     5|  Clock,\\n     6|} from 'lucide-react'\\n     7|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     8|\\n     9|const iconMap: Record<string, React.ReactNode> = {\\n    10|  'shield-check': <ShieldCheck size={28} />,\\n    11|  gavel: <Gavel size={28} />,\\n    12|  archive: <Archive size={28} />,\\n    13|  clock: <Clock size={28} />,\\n    14|}\\n    15|\\n    16|interface TrustItem {\\n    17|  icon: string\\n    18|  title: string\\n    19|  description: string\\n    20|}\\n    21|\\n    22|interface TrustSectionProps {\\n    23|  title: string\\n    24|  items: TrustItem[]\\n    25|}\\n    26|\\n    27|export default function TrustSection({ title, items }: TrustSectionProps) {\\n    28|  return (\\n    29|    <section className=\\\"bg-surface-alt section-padding\\\">\\n    30|      <div className=\\\"container-page\\\">\\n    31|        <div className=\\\"text-center mb-14\\\">\\n    32|          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n    33|            {title}\\n    34|          </h2>\\n    35|        </div>\\n    36|\\n    37|        <div className=\\\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8\\\">\\n    38|          {items.map((item, i) => (\\n    39|            <ScrollReveal key={i} delay={i * 100}>\\n    40|              <div className=\\\"bg-surface border border-border rounded-xl p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n    41|                <div className=\\\"inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent/10 text-accent mb-5\\\">\\n    42|                  {iconMap[item.icon] || <ShieldCheck size={28} />}\\n    43|                </div>\\n    44|                <h3 className=\\\"font-heading text-lg font-semibold text-foreground mb-3\\\">\\n    45|                  {item.title}\\n    46|                </h3>\\n    47|                <p className=\\\"text-muted text-sm leading-relaxed\\\">\\n    48|                  {item.description}\\n    49|                </p>\\n    50|              </div>\\n    51|            </ScrollReveal>\\n    52|          ))}\\n    53|        </div>\\n    54|      </div>\\n    55|    </section>\\n    56|  )\\n    57|}\\n    58|\", \"total_lines\": 57, \"file_size\": 1781, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_3EpEEZ6ucwZx5Qd5N4Wd0527"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import Link from 'next/link'\\n     2|import {\\n     3|  ScrollText,\\n     4|  FileSignature,\\n     5|  FileText,\\n     6|  Stamp,\\n     7|  Landmark,\\n     8|  Building2,\\n     9|} from 'lucide-react'\\n    10|import ScrollReveal from '@/components/animations/scroll-reveal'\\n    11|\\n    12|const iconMap: Record<string, React.ReactNode> = {\\n    13|  'scroll-text': <ScrollText size={32} />,\\n    14|  'file-signature': <FileSignature size={32} />,\\n    15|  'file-text': <FileText size={32} />,\\n    16|  stamp: <Stamp size={32} />,\\n    17|  landmark: <Landmark size={32} />,\\n    18|  building: <Building2 size={32} />,\\n    19|}\\n    20|\\n    21|interface ServiceItem {\\n    22|  id: string\\n    23|  icon: string\\n    24|  title: string\\n    25|  description: string\\n    26|  link: string\\n    27|}\\n    28|\\n    29|interface ServicesPreviewProps {\\n    30|  title: string\\n    31|  subtitle: string\\n    32|  items: ServiceItem[]\\n    33|}\\n    34|\\n    35|export default function ServicesPreview({\\n    36|  title,\\n    37|  subtitle,\\n    38|  items,\\n    39|}: ServicesPreviewProps) {\\n    40|  return (\\n    41|    <section className=\\\"bg-surface section-padding\\\">\\n    42|      <div className=\\\"container-page\\\">\\n    43|        <div className=\\\"text-center mb-14\\\">\\n    44|          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n    45|            {title}\\n    46|          </h2>\\n    47|          <p className=\\\"text-muted text-lg max-w-2xl mx-auto\\\">{subtitle}</p>\\n    48|        </div>\\n    49|\\n    50|        <div className=\\\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8\\\">\\n    51|          {items.map((item, i) => (\\n    52|            <ScrollReveal key={item.id} delay={i * 80}>\\n    53|              <div className=\\\"group bg-surface-alt border border-border rounded-xl p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-accent/30\\\">\\n    54|                <div className=\\\"text-accent mb-5 transition-transform duration-300 group-hover:scale-110\\\">\\n    55|                  {iconMap[item.icon] || <FileText size={32} />}\\n    56|                </div>\\n    57|                <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-3\\\">\\n    58|                  {item.title}\\n    59|                </h3>\\n    60|                <p className=\\\"text-muted text-sm leading-relaxed mb-5\\\">\\n    61|                  {item.description}\\n    62|                </p>\\n    63|                <Link\\n    64|                  href={item.link}\\n    65|                  className=\\\"inline-flex items-center gap-1 text-accent font-accent font-medium text-sm hover:text-accent-light transition-colors\\\"\\n    66|                >\\n    67|                  Ver más\\n    68|                  <span className=\\\"text-lg leading-none\\\">&rarr;</span>\\n    69|                </Link>\\n    70|              </div>\\n    71|            </ScrollReveal>\\n    72|          ))}\\n    73|        </div>\\n    74|      </div>\\n    75|    </section>\\n    76|  )\\n    77|}\\n    78|\", \"total_lines\": 77, \"file_size\": 2447, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_02_rO6p8a9aPopCausV811I8485"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     2|\\n     3|interface ProcessStep {\\n     4|  number: string\\n     5|  title: string\\n     6|  description: string\\n     7|}\\n     8|\\n     9|interface ProcessSectionProps {\\n    10|  title: string\\n    11|  subtitle: string\\n    12|  steps: ProcessStep[]\\n    13|}\\n    14|\\n    15|export default function ProcessSection({\\n    16|  title,\\n    17|  subtitle,\\n    18|  steps,\\n    19|}: ProcessSectionProps) {\\n    20|  return (\\n    21|    <section className=\\\"bg-surface section-padding\\\">\\n    22|      <div className=\\\"container-page\\\">\\n    23|        <div className=\\\"text-center mb-14\\\">\\n    24|          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n    25|            {title}\\n    26|          </h2>\\n    27|          <p className=\\\"text-muted text-lg max-w-2xl mx-auto\\\">{subtitle}</p>\\n    28|        </div>\\n    29|\\n    30|        <div className=\\\"relative\\\">\\n    31|          {/* Connecting line (desktop) */}\\n    32|          <div className=\\\"hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-border\\\" />\\n    33|\\n    34|          <div className=\\\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6\\\">\\n    35|            {steps.map((step, i) => (\\n    36|              <ScrollReveal key={i} delay={i * 100}>\\n    37|                <div className=\\\"relative flex flex-col items-center text-center lg:pt-0\\\">\\n    38|                  {/* Number circle */}\\n    39|                  <div className=\\\"relative z-10 flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-full bg-accent text-primary font-heading text-lg md:text-xl font-bold mb-5\\\">\\n    40|                    {step.number}\\n    41|                  </div>\\n    42|                  <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-3\\\">\\n    43|                    {step.title}\\n    44|                  </h3>\\n    45|                  <p className=\\\"text-muted text-sm leading-relaxed max-w-xs\\\">\\n    46|                    {step.description}\\n    47|                  </p>\\n    48|                </div>\\n    49|              </ScrollReveal>\\n    50|            ))}\\n    51|          </div>\\n    52|        </div>\\n    53|      </div>\\n    54|    </section>\\n    55|  )\\n    56|}\\n    57|\", \"total_lines\": 56, \"file_size\": 1876, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_03_wk7vVq6rlzmFWVS7lroH9434"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import Link from 'next/link'\\n     2|\\n     3|interface HeroProps {\\n     4|  headline: string\\n     5|  subheadline: string\\n     6|  ctaPrimaryText: string\\n     7|  ctaPrimaryHref: string\\n     8|  ctaSecondaryText?: string\\n     9|  ctaSecondaryHref?: string\\n    10|  variant?: 'dark' | 'light'\\n    11|}\\n    12|\\n    13|export default function Hero({\\n    14|  headline,\\n    15|  subheadline,\\n    16|  ctaPrimaryText,\\n    17|  ctaPrimaryHref,\\n    18|  ctaSecondaryText,\\n    19|  ctaSecondaryHref,\\n    20|  variant = 'dark',\\n    21|}: HeroProps) {\\n    22|  const isDark = variant === 'dark'\\n    23|\\n    24|  return (\\n    25|    <section\\n    26|      className={`relative min-h-[85vh] flex items-center ${\\n    27|        isDark\\n    28|          ? 'bg-primary text-white'\\n    29|          : 'bg-background text-foreground'\\n    30|      }`}\\n    31|    >\\n    32|      {/* Subtle overlay pattern */}\\n    33|      {isDark && (\\n    34|        <div\\n    35|          className=\\\"absolute inset-0 opacity-[0.03]\\\"\\n    36|          style={{\\n    37|            backgroundImage:\\n    38|              'radial-gradient(circle at 25% 50%, white 1px, transparent 1px)',\\n    39|            backgroundSize: '40px 40px',\\n    40|          }}\\n    41|        />\\n    42|      )}\\n    43|      <div className=\\\"container-page relative z-10 w-full text-center md:text-left\\\">\\n    44|        <div className=\\\"max-w-3xl mx-auto md:mx-0 py-20 md:py-32\\\">\\n    45|          <h1\\n    46|            className=\\\"font-heading text-4xl md:text-5xl lg:text-6xl leading-tight font-bold mb-6\\\"\\n    47|            dangerouslySetInnerHTML={{ __html: headline }}\\n    48|          />\\n    49|          <p\\n    50|            className={`text-lg md:text-xl leading-relaxed mb-10 max-w-2xl ${\\n    51|              isDark ? 'text-white/70' : 'text-muted'\\n    52|            }`}\\n    53|          >\\n    54|            {subheadline}\\n    55|          </p>\\n    56|          <div className=\\\"flex flex-col sm:flex-row items-center gap-4\\\">\\n    57|            <Link\\n    58|              href={ctaPrimaryHref}\\n    59|              className=\\\"inline-flex items-center justify-center bg-accent hover:bg-accent/90 text-primary font-accent font-semibold px-8 py-3.5 rounded-lg transition-all text-base\\\"\\n    60|            >\\n    61|              {ctaPrimaryText}\\n    62|            </Link>\\n    63|            {ctaSecondaryText && ctaSecondaryHref && (\\n    64|              <Link\\n    65|                href={ctaSecondaryHref}\\n    66|                className={`inline-flex items-center justify-center font-accent font-medium px-8 py-3.5 rounded-lg border-2 transition-all text-base ${\\n    67|                  isDark\\n    68|                    ? 'border-white/30 text-white hover:border-white/60 hover:bg-white/5'\\n    69|                    : 'border-primary/30 text-primary hover:border-primary/60 hover:bg-primary/5'\\n    70|                }`}\\n    71|              >\\n    72|                {ctaSecondaryText}\\n    73|              </Link>\\n    74|            )}\\n    75|          </div>\\n    76|        </div>\\n    77|      </div>\\n    78|    </section>\\n    79|  )\\n    80|}\\n    81|\", \"total_lines\": 80, \"file_size\": 2538, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_04_DVnpzw4rtPwhfshnT8gq2230"
+    },
+    {
+      "role": "assistant",
+      "content": "Now let me look at the remaining existing components to understand more patterns.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_A5wDygzYhrulWZYQ4BkA2450",
+          "call_id": "call_00_A5wDygzYhrulWZYQ4BkA2450",
+          "response_item_id": "fc_00_A5wDygzYhrulWZYQ4BkA2450",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/contact-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_01_NNLNE3LcTCmZErD45n222035",
+          "call_id": "call_01_NNLNE3LcTCmZErD45n222035",
+          "response_item_id": "fc_01_NNLNE3LcTCmZErD45n222035",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/testimonials-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_02_VuuYuVhc8wzC7Gtw09G35409",
+          "call_id": "call_02_VuuYuVhc8wzC7Gtw09G35409",
+          "response_item_id": "fc_02_VuuYuVhc8wzC7Gtw09G35409",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/stats-section.tsx\"}"
+          }
+        },
+        {
+          "id": "call_03_1Fz4toLi0yMm792N6r7x8817",
+          "call_id": "call_03_1Fz4toLi0yMm792N6r7x8817",
+          "response_item_id": "fc_03_1Fz4toLi0yMm792N6r7x8817",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/animations/scroll-reveal.tsx\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import { MessageCircle } from 'lucide-react'\\n     2|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     3|\\n     4|interface ContactSectionProps {\\n     5|  title: string\\n     6|  subtitle: string\\n     7|  ctaText: string\\n     8|  ctaHref: string\\n     9|}\\n    10|\\n    11|export default function ContactSection({\\n    12|  title,\\n    13|  subtitle,\\n    14|  ctaText,\\n    15|  ctaHref,\\n    16|}: ContactSectionProps) {\\n    17|  return (\\n    18|    <section className=\\\"bg-primary section-padding\\\">\\n    19|      <div className=\\\"container-page\\\">\\n    20|        <ScrollReveal>\\n    21|          <div className=\\\"max-w-2xl mx-auto text-center\\\">\\n    22|            <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-white mb-4\\\">\\n    23|              {title}\\n    24|            </h2>\\n    25|            <p className=\\\"text-white/60 text-lg mb-10\\\">{subtitle}</p>\\n    26|            <a\\n    27|              href={ctaHref}\\n    28|              target=\\\"_blank\\\"\\n    29|              rel=\\\"noopener noreferrer\\\"\\n    30|              className=\\\"inline-flex items-center gap-3 bg-[var(--color-whatsapp)] hover:bg-[var(--color-whatsapp)]/90 text-white font-accent font-semibold px-8 py-4 rounded-lg transition-all text-base shadow-lg hover:shadow-xl\\\"\\n    31|            >\\n    32|              <MessageCircle size={22} />\\n    33|              {ctaText}\\n    34|            </a>\\n    35|          </div>\\n    36|        </ScrollReveal>\\n    37|      </div>\\n    38|    </section>\\n    39|  )\\n    40|}\\n    41|\", \"total_lines\": 40, \"file_size\": 1225, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_A5wDygzYhrulWZYQ4BkA2450"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import { Quote } from 'lucide-react'\\n     2|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     3|\\n     4|interface TestimonialItem {\\n     5|  name: string\\n     6|  role: string\\n     7|  text: string\\n     8|}\\n     9|\\n    10|interface TestimonialsSectionProps {\\n    11|  title: string\\n    12|  items: TestimonialItem[]\\n    13|}\\n    14|\\n    15|export default function TestimonialsSection({\\n    16|  title,\\n    17|  items,\\n    18|}: TestimonialsSectionProps) {\\n    19|  return (\\n    20|    <section className=\\\"bg-surface-alt section-padding\\\">\\n    21|      <div className=\\\"container-page\\\">\\n    22|        <div className=\\\"text-center mb-14\\\">\\n    23|          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n    24|            {title}\\n    25|          </h2>\\n    26|        </div>\\n    27|\\n    28|        <div className=\\\"grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8\\\">\\n    29|          {items.map((item, i) => (\\n    30|            <ScrollReveal key={i} delay={i * 100}>\\n    31|              <div className=\\\"bg-surface border border-border rounded-xl p-6 md:p-8 relative\\\">\\n    32|                <Quote\\n    33|                  size={32}\\n    34|                  className=\\\"text-accent/20 absolute top-4 right-4\\\"\\n    35|                />\\n    36|                <p className=\\\"text-muted leading-relaxed mb-6 italic\\\">\\n    37|                  &ldquo;{item.text}&rdquo;\\n    38|                </p>\\n    39|                <div>\\n    40|                  <p className=\\\"font-heading font-semibold text-foreground\\\">\\n    41|                    {item.name}\\n    42|                  </p>\\n    43|                  <p className=\\\"text-accent text-sm font-accent font-medium\\\">\\n    44|                    {item.role}\\n    45|                  </p>\\n    46|                </div>\\n    47|              </div>\\n    48|            </ScrollReveal>\\n    49|          ))}\\n    50|        </div>\\n    51|      </div>\\n    52|    </section>\\n    53|  )\\n    54|}\\n    55|\", \"total_lines\": 54, \"file_size\": 1603, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_NNLNE3LcTCmZErD45n222035"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     2|\\n     3|interface StatItem {\\n     4|  number: string\\n     5|  label: string\\n     6|}\\n     7|\\n     8|interface StatsSectionProps {\\n     9|  items: StatItem[]\\n    10|}\\n    11|\\n    12|export default function StatsSection({ items }: StatsSectionProps) {\\n    13|  return (\\n    14|    <section className=\\\"bg-accent section-padding\\\">\\n    15|      <div className=\\\"container-page\\\">\\n    16|        <div className=\\\"grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12\\\">\\n    17|          {items.map((item, i) => (\\n    18|            <ScrollReveal key={i} delay={i * 100}>\\n    19|              <div className=\\\"text-center\\\">\\n    20|                <div className=\\\"font-heading text-4xl md:text-5xl lg:text-6xl font-bold text-primary mb-2\\\">\\n    21|                  {item.number}\\n    22|                </div>\\n    23|                <p className=\\\"text-primary/70 font-accent text-sm md:text-base font-medium\\\">\\n    24|                  {item.label}\\n    25|                </p>\\n    26|              </div>\\n    27|            </ScrollReveal>\\n    28|          ))}\\n    29|        </div>\\n    30|      </div>\\n    31|    </section>\\n    32|  )\\n    33|}\\n    34|\", \"total_lines\": 33, \"file_size\": 972, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_02_VuuYuVhc8wzC7Gtw09G35409"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|'use client'\\n     2|\\n     3|import { useEffect, useRef, useState, type ReactNode } from 'react'\\n     4|\\n     5|interface ScrollRevealProps {\\n     6|  children: ReactNode\\n     7|  className?: string\\n     8|  delay?: number\\n     9|}\\n    10|\\n    11|export default function ScrollReveal({\\n    12|  children,\\n    13|  className = '',\\n    14|  delay = 0,\\n    15|}: ScrollRevealProps) {\\n    16|  const ref = useRef<HTMLDivElement>(null)\\n    17|  const [isVisible, setIsVisible] = useState(false)\\n    18|\\n    19|  useEffect(() => {\\n    20|    const el = ref.current\\n    21|    if (!el) return\\n    22|\\n    23|    const observer = new IntersectionObserver(\\n    24|      ([entry]) => {\\n    25|        if (entry.isIntersecting) {\\n    26|          setTimeout(() => setIsVisible(true), delay)\\n    27|          observer.unobserve(el)\\n    28|        }\\n    29|      },\\n    30|      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }\\n    31|    )\\n    32|\\n    33|    observer.observe(el)\\n    34|    return () => observer.disconnect()\\n    35|  }, [delay])\\n    36|\\n    37|  return (\\n    38|    <div\\n    39|      ref={ref}\\n    40|      className={`transition-all duration-700 ease-out ${\\n    41|        isVisible\\n    42|          ? 'translate-y-0 opacity-100'\\n    43|          : 'translate-y-8 opacity-0'\\n    44|      } ${className}`}\\n    45|    >\\n    46|      {children}\\n    47|    </div>\\n    48|  )\\n    49|}\\n    50|\", \"total_lines\": 49, \"file_size\": 1053, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_03_1Fz4toLi0yMm792N6r7x8817"
+    },
+    {
+      "role": "assistant",
+      "content": "Now let me also check the header, footer, cta-banner, and whatsapp-float for reference:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_73bvB4htKRjEsLf8BY9r8963",
+          "call_id": "call_00_73bvB4htKRjEsLf8BY9r8963",
+          "response_item_id": "fc_00_73bvB4htKRjEsLf8BY9r8963",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/header.tsx\"}"
+          }
+        },
+        {
+          "id": "call_01_62FFR2efrdmgug18hkRu0605",
+          "call_id": "call_01_62FFR2efrdmgug18hkRu0605",
+          "response_item_id": "fc_01_62FFR2efrdmgug18hkRu0605",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/footer.tsx\"}"
+          }
+        },
+        {
+          "id": "call_02_F75USjda5GzybErohC6M0069",
+          "call_id": "call_02_F75USjda5GzybErohC6M0069",
+          "response_item_id": "fc_02_F75USjda5GzybErohC6M0069",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/cta-banner.tsx\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|'use client'\\n     2|\\n     3|import { useState, useEffect } from 'react'\\n     4|import Link from 'next/link'\\n     5|import { Menu, X, MessageCircle } from 'lucide-react'\\n     6|import content from '@/content/es.json'\\n     7|\\n     8|export default function Header() {\\n     9|  const [scrolled, setScrolled] = useState(false)\\n    10|  const [mobileOpen, setMobileOpen] = useState(false)\\n    11|  const nav = content.navigation\\n    12|\\n    13|  useEffect(() => {\\n    14|    const onScroll = () => setScrolled(window.scrollY > 40)\\n    15|    window.addEventListener('scroll', onScroll, { passive: true })\\n    16|    return () => window.removeEventListener('scroll', onScroll)\\n    17|  }, [])\\n    18|\\n    19|  useEffect(() => {\\n    20|    if (mobileOpen) {\\n    21|      document.body.style.overflow = 'hidden'\\n    22|    } else {\\n    23|      document.body.style.overflow = ''\\n    24|    }\\n    25|    return () => {\\n    26|      document.body.style.overflow = ''\\n    27|    }\\n    28|  }, [mobileOpen])\\n    29|\\n    30|  return (\\n    31|    <header\\n    32|      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${\\n    33|        scrolled\\n    34|          ? 'bg-surface/95 backdrop-blur-md shadow-sm'\\n    35|          : 'bg-transparent'\\n    36|      }`}\\n    37|    >\\n    38|      <div className=\\\"container-page flex items-center justify-between h-16 md:h-20\\\">\\n    39|        {/* Logo / Brand */}\\n    40|        <Link\\n    41|          href=\\\"/\\\"\\n    42|          className={`text-xl md:text-2xl font-heading font-semibold tracking-tight transition-colors ${\\n    43|            scrolled ? 'text-foreground' : 'text-white'\\n    44|          }`}\\n    45|        >\\n    46|          {nav.businessName}\\n    47|        </Link>\\n    48|\\n    49|        {/* Desktop Nav */}\\n    50|        <nav className=\\\"hidden md:flex items-center gap-8\\\">\\n    51|          {nav.items.map((item) => (\\n    52|            <Link\\n    53|              key={item.href}\\n    54|              href={item.href}\\n    55|              className={`text-sm font-accent font-medium transition-colors hover:text-accent ${\\n    56|                scrolled ? 'text-foreground/80' : 'text-white/80'\\n    57|              }`}\\n    58|            >\\n    59|              {item.label}\\n    60|            </Link>\\n    61|          ))}\\n    62|          <a\\n    63|            href={nav.ctaHref}\\n    64|            target=\\\"_blank\\\"\\n    65|            rel=\\\"noopener noreferrer\\\"\\n    66|            className=\\\"inline-flex items-center gap-2 bg-accent hover:bg-accent/90 text-primary font-accent font-semibold text-sm px-5 py-2.5 rounded-lg transition-all\\\"\\n    67|          >\\n    68|            <MessageCircle size={16} />\\n    69|            {nav.ctaText}\\n    70|          </a>\\n    71|        </nav>\\n    72|\\n    73|        {/* Mobile Toggle */}\\n    74|        <button\\n    75|          onClick={() => setMobileOpen(!mobileOpen)}\\n    76|          className={`md:hidden p-2 rounded-lg transition-colors ${\\n    77|            scrolled ? 'text-foreground' : 'text-white'\\n    78|          }`}\\n    79|          aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}\\n    80|        >\\n    81|          {mobileOpen ? <X size={24} /> : <Menu size={24} />}\\n    82|        </button>\\n    83|      </div>\\n    84|\\n    85|      {/* Mobile Menu Overlay */}\\n    86|      <div\\n    87|        className={`fixed inset-0 top-16 bg-primary z-40 transition-all duration-300 md:hidden ${\\n    88|          mobileOpen\\n    89|            ? 'opacity-100 pointer-events-auto'\\n    90|            : 'opacity-0 pointer-events-none'\\n    91|        }`}\\n    92|      >\\n    93|        <nav className=\\\"flex flex-col items-center gap-6 pt-12 pb-8 px-6\\\">\\n    94|          {nav.items.map((item) => (\\n    95|            <Link\\n    96|              key={item.href}\\n    97|              href={item.href}\\n    98|              onClick={() => setMobileOpen(false)}\\n    99|              className=\\\"text-white/90 hover:text-accent font-accent text-lg font-medium transition-colors\\\"\\n   100|            >\\n   101|              {item.label}\\n   102|            </Link>\\n   103|          ))}\\n   104|          <a\\n   105|            href={nav.ctaHref}\\n   106|            target=\\\"_blank\\\"\\n   107|            rel=\\\"noopener noreferrer\\\"\\n   108|            onClick={() => setMobileOpen(false)}\\n   109|            className=\\\"mt-4 inline-flex items-center gap-2 bg-accent hover:bg-accent/90 text-primary font-accent font-semibold px-6 py-3 rounded-lg transition-all\\\"\\n   110|          >\\n   111|            <MessageCircle size={18} />\\n   112|            {nav.ctaText}\\n   113|          </a>\\n   114|        </nav>\\n   115|      </div>\\n   116|    </header>\\n   117|  )\\n   118|}\\n   119|\", \"total_lines\": 118, \"file_size\": 3831, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_73bvB4htKRjEsLf8BY9r8963"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import Link from 'next/link'\\n     2|import { MapPin, Phone, Mail, Clock } from 'lucide-react'\\n     3|import content from '@/content/es.json'\\n     4|\\n     5|export default function Footer() {\\n     6|  const footer = content.footer\\n     7|\\n     8|  return (\\n     9|    <footer className=\\\"bg-primary text-white\\\">\\n    10|      <div className=\\\"container-page section-padding\\\">\\n    11|        <div className=\\\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8\\\">\\n    12|          {/* Brand column */}\\n    13|          <div className=\\\"lg:col-span-1\\\">\\n    14|            <h3 className=\\\"font-heading text-xl font-bold mb-4\\\">\\n    15|              {footer.businessName}\\n    16|            </h3>\\n    17|            <p className=\\\"text-white/60 text-sm leading-relaxed mb-6\\\">\\n    18|              {footer.tagline}\\n    19|            </p>\\n    20|          </div>\\n    21|\\n    22|          {/* Service links columns */}\\n    23|          {footer.columns.map((col, i) => (\\n    24|            <div key={i}>\\n    25|              <h4 className=\\\"font-accent font-semibold text-sm uppercase tracking-wider text-accent mb-4\\\">\\n    26|                {col.title}\\n    27|              </h4>\\n    28|              <ul className=\\\"space-y-3\\\">\\n    29|                {col.links.map((link, j) => (\\n    30|                  <li key={j}>\\n    31|                    <Link\\n    32|                      href={link.href}\\n    33|                      className=\\\"text-white/60 hover:text-accent text-sm transition-colors\\\"\\n    34|                    >\\n    35|                      {link.label}\\n    36|                    </Link>\\n    37|                  </li>\\n    38|                ))}\\n    39|              </ul>\\n    40|            </div>\\n    41|          ))}\\n    42|\\n    43|          {/* Contact column */}\\n    44|          <div>\\n    45|            <h4 className=\\\"font-accent font-semibold text-sm uppercase tracking-wider text-accent mb-4\\\">\\n    46|              Contacto\\n    47|            </h4>\\n    48|            <ul className=\\\"space-y-3 text-white/60 text-sm\\\">\\n    49|              <li className=\\\"flex items-start gap-2\\\">\\n    50|                <MapPin size={16} className=\\\"mt-0.5 flex-shrink-0 text-accent\\\" />\\n    51|                <span>{footer.contact.address}</span>\\n    52|              </li>\\n    53|              <li className=\\\"flex items-center gap-2\\\">\\n    54|                <Phone size={16} className=\\\"flex-shrink-0 text-accent\\\" />\\n    55|                <span>{footer.contact.phone}</span>\\n    56|              </li>\\n    57|              <li className=\\\"flex items-center gap-2\\\">\\n    58|                <Mail size={16} className=\\\"flex-shrink-0 text-accent\\\" />\\n    59|                <span>{footer.contact.email}</span>\\n    60|              </li>\\n    61|              <li className=\\\"flex items-start gap-2\\\">\\n    62|                <Clock size={16} className=\\\"mt-0.5 flex-shrink-0 text-accent\\\" />\\n    63|                <span>{footer.contact.hours}</span>\\n    64|              </li>\\n    65|            </ul>\\n    66|          </div>\\n    67|        </div>\\n    68|      </div>\\n    69|\\n    70|      {/* Bottom bar */}\\n    71|      <div className=\\\"border-t border-white/10\\\">\\n    72|        <div className=\\\"container-page py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-white/50 text-xs\\\">\\n    73|          <p>{footer.copyright}</p>\\n    74|          <p>{footer.madeBy}</p>\\n    75|        </div>\\n    76|      </div>\\n    77|    </footer>\\n    78|  )\\n    79|}\\n    80|\", \"total_lines\": 79, \"file_size\": 2908, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_62FFR2efrdmgug18hkRu0605"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|import Link from 'next/link'\\n     2|import ScrollReveal from '@/components/animations/scroll-reveal'\\n     3|\\n     4|interface CTABannerProps {\\n     5|  title: string\\n     6|  subtitle: string\\n     7|  buttonText: string\\n     8|  buttonHref: string\\n     9|}\\n    10|\\n    11|export default function CTABanner({\\n    12|  title,\\n    13|  subtitle,\\n    14|  buttonText,\\n    15|  buttonHref,\\n    16|}: CTABannerProps) {\\n    17|  const isExternal = buttonHref.startsWith('http')\\n    18|\\n    19|  return (\\n    20|    <section className=\\\"gradient-accent section-padding\\\">\\n    21|      <div className=\\\"container-page\\\">\\n    22|        <ScrollReveal>\\n    23|          <div className=\\\"max-w-2xl mx-auto text-center\\\">\\n    24|            <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-primary mb-4\\\">\\n    25|              {title}\\n    26|            </h2>\\n    27|            <p className=\\\"text-primary/70 text-lg mb-8\\\">{subtitle}</p>\\n    28|            {isExternal ? (\\n    29|              <a\\n    30|                href={buttonHref}\\n    31|                target=\\\"_blank\\\"\\n    32|                rel=\\\"noopener noreferrer\\\"\\n    33|                className=\\\"inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-white font-accent font-semibold px-8 py-3.5 rounded-lg transition-all text-base\\\"\\n    34|              >\\n    35|                {buttonText}\\n    36|              </a>\\n    37|            ) : (\\n    38|              <Link\\n    39|                href={buttonHref}\\n    40|                className=\\\"inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-white font-accent font-semibold px-8 py-3.5 rounded-lg transition-all text-base\\\"\\n    41|              >\\n    42|                {buttonText}\\n    43|              </Link>\\n    44|            )}\\n    45|          </div>\\n    46|        </ScrollReveal>\\n    47|      </div>\\n    48|    </section>\\n    49|  )\\n    50|}\\n    51|\", \"total_lines\": 50, \"file_size\": 1565, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_02_F75USjda5GzybErohC6M0069"
+    },
+    {
+      "role": "assistant",
+      "content": "Now I have a thorough understanding of the patterns. Let me also check what icons are used for services in the content file:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Su9scOjzC1LmWgN2K3C71542",
+          "call_id": "call_00_Su9scOjzC1LmWgN2K3C71542",
+          "response_item_id": "fc_00_Su9scOjzC1LmWgN2K3C71542",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/content/es.json\", \"limit\": 100}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|{\\n     2|  \\\"siteName\\\": \\\"{{businessName}}\\\",\\n     3|  \\\"siteTitle\\\": \\\"{{businessName}} — Escribanía en Paraguay | Fe Pública y Seguridad Jurídica\\\",\\n     4|  \\\"siteDescription\\\": \\\"Servicios notariales en Paraguay. Escrituras públicas, poderes, contratos, legalizaciones, apostillas y autenticaciones. Atención personalizada con la confianza de la fe pública.\\\",\\n     5|  \\\"navigation\\\": {\\n     6|    \\\"businessName\\\": \\\"{{businessName}}\\\",\\n     7|    \\\"ctaText\\\": \\\"Consultar por WhatsApp\\\",\\n     8|    \\\"ctaHref\\\": \\\"https://wa.me/{{whatsapp}}?text={{whatsappMessage}}\\\",\\n     9|    \\\"items\\\": [\\n    10|      { \\\"label\\\": \\\"Inicio\\\", \\\"href\\\": \\\"/\\\" },\\n    11|      { \\\"label\\\": \\\"Servicios\\\", \\\"href\\\": \\\"/servicios\\\" },\\n    12|      { \\\"label\\\": \\\"Nosotros\\\", \\\"href\\\": \\\"/nosotros\\\" },\\n    13|      { \\\"label\\\": \\\"FAQ\\\", \\\"href\\\": \\\"/faq\\\" },\\n    14|      { \\\"label\\\": \\\"Contacto\\\", \\\"href\\\": \\\"/contacto\\\" }\\n    15|    ]\\n    16|  },\\n    17|  \\\"footer\\\": {\\n    18|    \\\"businessName\\\": \\\"{{businessName}}\\\",\\n    19|    \\\"tagline\\\": \\\"Fe Pública y Seguridad Jurídica desde {{year}}\\\",\\n    20|    \\\"columns\\\": [\\n    21|      {\\n    22|        \\\"title\\\": \\\"Servicios\\\",\\n    23|        \\\"links\\\": [\\n    24|          { \\\"label\\\": \\\"Escrituras Públicas\\\", \\\"href\\\": \\\"/servicios/escrituras\\\" },\\n    25|          { \\\"label\\\": \\\"Poderes\\\", \\\"href\\\": \\\"/servicios/poderes\\\" },\\n    26|          { \\\"label\\\": \\\"Contratos\\\", \\\"href\\\": \\\"/servicios/contratos\\\" },\\n    27|          { \\\"label\\\": \\\"Legalizaciones\\\", \\\"href\\\": \\\"/servicios/legalizaciones\\\" },\\n    28|          { \\\"label\\\": \\\"Sucesiones\\\", \\\"href\\\": \\\"/servicios/sucesiones\\\" }\\n    29|        ]\\n    30|      },\\n    31|      {\\n    32|        \\\"title\\\": \\\"Información\\\",\\n    33|        \\\"links\\\": [\\n    34|          { \\\"label\\\": \\\"Sobre Nosotros\\\", \\\"href\\\": \\\"/nosotros\\\" },\\n    35|          { \\\"label\\\": \\\"FAQ\\\", \\\"href\\\": \\\"/faq\\\" },\\n    36|          { \\\"label\\\": \\\"Contacto\\\", \\\"href\\\": \\\"/contacto\\\" }\\n    37|        ]\\n    38|      }\\n    39|    ],\\n    40|    \\\"contact\\\": {\\n    41|      \\\"address\\\": \\\"Asunción, Paraguay\\\",\\n    42|      \\\"phone\\\": \\\"+595 {{phone}}\\\",\\n    43|      \\\"email\\\": \\\"{{email}}\\\",\\n    44|      \\\"hours\\\": \\\"Lunes a Viernes: 8:00 - 17:00 | Sábados: 8:00 - 12:00\\\"\\n    45|    },\\n    46|    \\\"copyright\\\": \\\"© {{year}} {{businessName}}. Todos los derechos reservados.\\\",\\n    47|    \\\"madeBy\\\": \\\"Diseño web por Ai-Whisperers\\\"\\n    48|  },\\n    49|  \\\"home\\\": {\\n    50|    \\\"seo\\\": {\\n    51|      \\\"title\\\": \\\"{{businessName}} — Escribanía en Paraguay | Fe Pública\\\",\\n    52|      \\\"description\\\": \\\"Servicios notariales con fe pública. Escrituras, poderes, contratos, legalizaciones y más en Asunción, Paraguay.\\\"\\n    53|    },\\n    54|    \\\"hero\\\": {\\n    55|      \\\"headline\\\": \\\"Fe Pública y <span class=\\\\\\\"text-[var(--color-accent)]\\\\\\\">Seguridad Jurídica</span>\\\",\\n    56|      \\\"subheadline\\\": \\\"Servicios notariales para personas y empresas en Paraguay. Escrituras, poderes, contratos y legalizaciones con la confianza que merecés.\\\",\\n    57|      \\\"ctaPrimaryText\\\": \\\"Agendar Consulta\\\",\\n    58|      \\\"ctaPrimaryHref\\\": \\\"/contacto\\\",\\n    59|      \\\"ctaSecondaryText\\\": \\\"Ver Servicios\\\",\\n    60|      \\\"ctaSecondaryHref\\\": \\\"/servicios\\\"\\n    61|    },\\n    62|    \\\"stats\\\": {\\n    63|      \\\"title\\\": \\\"\\\",\\n    64|      \\\"items\\\": [\\n    65|        { \\\"number\\\": \\\"25+\\\", \\\"label\\\": \\\"Años de Experiencia\\\" },\\n    66|        { \\\"number\\\": \\\"3000+\\\", \\\"label\\\": \\\"Documentos Notariales\\\" },\\n    67|        { \\\"number\\\": \\\"500+\\\", \\\"label\\\": \\\"Clientes Satisfechos\\\" },\\n    68|        { \\\"number\\\": \\\"98%\\\", \\\"label\\\": \\\"Trámites Exitosos\\\" }\\n    69|      ]\\n    70|    },\\n    71|    \\\"services\\\": {\\n    72|      \\\"title\\\": \\\"Nuestros Servicios Notariales\\\",\\n    73|      \\\"subtitle\\\": \\\"Todo lo que necesitás en materia notarial, con la seguridad jurídica que tu tranquilidad merece\\\",\\n    74|      \\\"items\\\": [\\n    75|        {\\n    76|          \\\"id\\\": \\\"escrituras\\\",\\n    77|          \\\"icon\\\": \\\"scroll-text\\\",\\n    78|          \\\"title\\\": \\\"Escrituras Públicas\\\",\\n    79|          \\\"description\\\": \\\"Compraventa de inmuebles, hipotecas, constitución de sociedades y todo acto que requiera escritura pública según la ley paraguaya.\\\",\\n    80|          \\\"link\\\": \\\"/servicios/escrituras\\\"\\n    81|        },\\n    82|        {\\n    83|          \\\"id\\\": \\\"poderes\\\",\\n    84|          \\\"icon\\\": \\\"file-signature\\\",\\n    85|          \\\"title\\\": \\\"Poderes\\\",\\n    86|          \\\"description\\\": \\\"Poderes generales, especiales, judiciales y administrativos. Para uso dentro del Paraguay o con validez internacional.\\\",\\n    87|          \\\"link\\\": \\\"/servicios/poderes\\\"\\n    88|        },\\n    89|        {\\n    90|          \\\"id\\\": \\\"contratos\\\",\\n    91|          \\\"icon\\\": \\\"file-text\\\",\\n    92|          \\\"title\\\": \\\"Contratos\\\",\\n    93|          \\\"description\\\": \\\"Contratos de alquiler, préstamo, fideicomiso, compraventa de vehículos y más. Redacción, revisión y certificación.\\\",\\n    94|          \\\"link\\\": \\\"/servicios/contratos\\\"\\n    95|        },\\n    96|        {\\n    97|          \\\"id\\\": \\\"legalizaciones\\\",\\n    98|          \\\"icon\\\": \\\"stamp\\\",\\n    99|          \\\"title\\\": \\\"Legalizaciones y Apostillas\\\",\\n   100|          \\\"description\\\": \\\"Legalización de documentos públicos, apostilla de La Haya para uso internacional y autenticación de firmas.\\\",\\n   101|\", \"total_lines\": 520, \"file_size\": 25731, \"truncated\": true, \"hint\": \"Use offset=101 to continue reading (showing 1-100 of 520 lines)\", \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_Su9scOjzC1LmWgN2K3C71542"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_tCQ2wVfK4oOMQhRA032G7663",
+          "call_id": "call_00_tCQ2wVfK4oOMQhRA032G7663",
+          "response_item_id": "fc_00_tCQ2wVfK4oOMQhRA032G7663",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"offset\": 101, \"path\": \"/root/escribania-paraguay/content/es.json\", \"limit\": 200}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"   101|          \\\"link\\\": \\\"/servicios/legalizaciones\\\"\\n   102|        },\\n   103|        {\\n   104|          \\\"id\\\": \\\"sucesiones\\\",\\n   105|          \\\"icon\\\": \\\"landmark\\\",\\n   106|          \\\"title\\\": \\\"Sucesiones y Testamentos\\\",\\n   107|          \\\"description\\\": \\\"Sucesiones intestadas y testamentarias. Testamentos ológrafos, abiertos y cerrados. Declaratorias de herederos.\\\",\\n   108|          \\\"link\\\": \\\"/servicios/sucesiones\\\"\\n   109|        },\\n   110|        {\\n   111|          \\\"id\\\": \\\"societario\\\",\\n   112|          \\\"icon\\\": \\\"building\\\",\\n   113|          \\\"title\\\": \\\"Actos Societarios\\\",\\n   114|          \\\"description\\\": \\\"Constitución de sociedades, asambleas, actas de directorio, aumentos de capital y disoluciones.\\\",\\n   115|          \\\"link\\\": \\\"/servicios/societario\\\"\\n   116|        }\\n   117|      ]\\n   118|    },\\n   119|    \\\"trust\\\": {\\n   120|      \\\"title\\\": \\\"¿Por qué elegir una Escribanía?\\\",\\n   121|      \\\"items\\\": [\\n   122|        { \\\"icon\\\": \\\"shield-check\\\", \\\"title\\\": \\\"Fe Pública\\\", \\\"description\\\": \\\"Todo documento firmado ante escribano tiene valor legal pleno. No hay posibilidad de impugnación por falsedad.\\\" },\\n   123|        { \\\"icon\\\": \\\"gavel\\\", \\\"title\\\": \\\"Seguridad Jurídica\\\", \\\"description\\\": \\\"Cada acto notarial se ajusta estrictamente a las leyes paraguayas, garantizando su validez.\\\" },\\n   124|        { \\\"icon\\\": \\\"archive\\\", \\\"title\\\": \\\"Archivo Seguro\\\", \\\"description\\\": \\\"Los protocolos notariales se conservan por décadas. Siempre podés solicitar copias.\\\" },\\n   125|        { \\\"icon\\\": \\\"clock\\\", \\\"title\\\": \\\"Rapidez y Eficiencia\\\", \\\"description\\\": \\\"Tramitamos tu documentación en el menor tiempo posible, sin sacrificar la calidad jurídica.\\\" }\\n   126|      ]\\n   127|    },\\n   128|    \\\"process\\\": {\\n   129|      \\\"title\\\": \\\"¿Cómo trabajamos?\\\",\\n   130|      \\\"subtitle\\\": \\\"Un proceso claro y transparente para que sepas exactamente qué esperar\\\",\\n   131|      \\\"steps\\\": [\\n   132|        { \\\"number\\\": \\\"01\\\", \\\"title\\\": \\\"Consultá\\\", \\\"description\\\": \\\"Contactanos por WhatsApp, email o visitanos. Te asesoramos sobre la documentación necesaria para tu caso.\\\" },\\n   133|        { \\\"number\\\": \\\"02\\\", \\\"title\\\": \\\"Preparación\\\", \\\"description\\\": \\\"Revisamos tus documentos, redactamos la minuta y preparamos todo para el acto notarial.\\\" },\\n   134|        { \\\"number\\\": \\\"03\\\", \\\"title\\\": \\\"Firma\\\", \\\"description\\\": \\\"Agendamos la cita para la firma. Leemos el documento en voz alta y procedemos a la firma con todas las formalidades de ley.\\\" },\\n   135|        { \\\"number\\\": \\\"04\\\", \\\"title\\\": \\\"Entrega\\\", \\\"description\\\": \\\"Recibís tu testimonio o copia debidamente protocolizada. Nos encargamos de los registros correspondientes.\\\" }\\n   136|      ]\\n   137|    },\\n   138|    \\\"faq\\\": {\\n   139|      \\\"title\\\": \\\"Preguntas Frecuentes\\\",\\n   140|      \\\"subtitle\\\": \\\"Respondemos tus dudas sobre servicios notariales en Paraguay\\\",\\n   141|      \\\"items\\\": [\\n   142|        {\\n   143|          \\\"q\\\": \\\"¿Qué documentos necesito para una compraventa de inmueble?\\\",\\n   144|          \\\"a\\\": \\\"Necesitás cédula de identidad vigente, título de propiedad (o certificado de registro fiscal), certificado de deuda municipal y de la Administración Nacional de Navegación y Puertos si corresponde, constancia de pago de impuestos inmobiliarios, y certificado de no adeudar de ANDE y ESSAP. Te guiamos en todo el proceso.\\\"\\n   145|        },\\n   146|        {\\n   147|          \\\"q\\\": \\\"¿Cuánto cuesta un servicio notarial?\\\",\\n   148|          \\\"a\\\": \\\"Los costos varían según el tipo de acto y el valor del bien involucrado. Los honorarios notariales están regulados por el Colegio de Escribanos del Paraguay. Te damos un presupuesto exacto sin compromiso en tu primera consulta.\\\"\\n   149|        },\\n   150|        {\\n   151|          \\\"q\\\": \\\"¿Qué es la Apostilla de La Haya?\\\",\\n   152|          \\\"a\\\": \\\"Es un método de legalización de documentos públicos para que tengan validez en países firmantes del Convenio de La Haya. Paraguay es parte desde 2014. Nosotros gestionamos la apostilla ante el Ministerio de Relaciones Exteriores para tus documentos.\\\"\\n   153|        },\\n   154|        {\\n   155|          \\\"q\\\": \\\"¿Puedo hacer un poder desde el extranjero?\\\",\\n   156|          \\\"a\\\": \\\"Sí. Podés otorgar un poder desde el exterior. El documento debe ser legalizado o apostillado en el país de origen, traducido por traductor público matriculado en Paraguay si está en otro idioma, y luego presentado ante escribano para su protocolización.\\\"\\n   157|        },\\n   158|        {\\n   159|          \\\"q\\\": \\\"¿Qué diferencia hay entre testamento ológrafo y abierto?\\\",\\n   160|          \\\"a\\\": \\\"El testamento ológrafo lo escribís de puño y letra y lo firmás vos mismo. El testamento abierto se otorga ante escribano y testigos, y queda protocolizado. Para el abierto no necesitás saber escribir, solo firmar. Te asesoramos sobre cuál es mejor según tu caso.\\\"\\n   161|        },\\n   162|        {\\n   163|          \\\"q\\\": \\\"¿Cuánto tiempo toma una sucesión?\\\",\\n   164|          \\\"a\\\": \\\"La sucesión intestada (sin testamento) puede tomar de 3 a 6 meses aproximadamente, dependiendo de la complejidad del patrimonio y si hay acuerdo entre los herederos. La sucesión testamentaria suele ser más rápida. Aceleramos el proceso con gestión eficiente.\\\"\\n   165|        }\\n   166|      ]\\n   167|    },\\n   168|    \\\"testimonials\\\": {\\n   169|      \\\"title\\\": \\\"Lo que dicen nuestros clientes\\\",\\n   170|      \\\"items\\\": [\\n   171|        {\\n   172|          \\\"name\\\": \\\"María González\\\",\\n   173|          \\\"role\\\": \\\"Compradora de inmueble\\\",\\n   174|          \\\"text\\\": \\\"Excelente atención. Me explicaron todo el proceso de compraventa paso a paso. Me sentí segura en todo momento.\\\"\\n   175|        },\\n   176|        {\\n   177|          \\\"name\\\": \\\"Carlos Benítez\\\",\\n   178|          \\\"role\\\": \\\"Empresario\\\",\\n   179|          \\\"text\\\": \\\"Rápidos y eficientes. Constituyeron mi sociedad en tiempo récord. Muy recomendados para trámites empresariales.\\\"\\n   180|        },\\n   181|        {\\n   182|          \\\"name\\\": \\\"Laura Martínez\\\",\\n   183|          \\\"role\\\": \\\"Particular\\\",\\n   184|          \\\"text\\\": \\\"Hice mi testamento con ellos. Profesionales, cálidos y resolvieron todas mis dudas. Una tranquilidad para mi familia.\\\"\\n   185|        }\\n   186|      ]\\n   187|    },\\n   188|    \\\"contact\\\": {\\n   189|      \\\"title\\\": \\\"Agendá tu consulta\\\",\\n   190|      \\\"subtitle\\\": \\\"Sin compromiso. Te asesoramos sobre el mejor camino para tu trámite notarial.\\\",\\n   191|      \\\"ctaText\\\": \\\"Escribinos por WhatsApp\\\",\\n   192|      \\\"ctaHref\\\": \\\"https://wa.me/{{whatsapp}}?text={{whatsappMessage}}\\\",\\n   193|      \\\"form\\\": {\\n   194|        \\\"fields\\\": [\\\"nombre\\\", \\\"email\\\", \\\"telefono\\\", \\\"servicio\\\", \\\"mensaje\\\"]\\n   195|      }\\n   196|    }\\n   197|  },\\n   198|  \\\"serviciosPage\\\": {\\n   199|    \\\"seo\\\": {\\n   200|      \\\"title\\\": \\\"Servicios Notariales | {{businessName}}\\\",\\n   201|      \\\"description\\\": \\\"Todos nuestros servicios notariales en Paraguay. Escrituras, poderes, contratos, legalizaciones, sucesiones y actos societarios.\\\"\\n   202|    },\\n   203|    \\\"hero\\\": {\\n   204|      \\\"headline\\\": \\\"Servicios Notariales\\\",\\n   205|      \\\"subheadline\\\": \\\"Ofrecemos una gama completa de servicios notariales para personas y empresas en Paraguay\\\"\\n   206|    },\\n   207|    \\\"intro\\\": {\\n   208|      \\\"text\\\": \\\"Como escribanos públicos matriculados, estamos habilitados para dar fe pública de todos los actos y contratos que requieran intervención notarial según las leyes paraguayas. Cada servicio se realiza con el más alto estándar de profesionalismo y seguridad jurídica.\\\"\\n   209|    },\\n   210|    \\\"categories\\\": [\\n   211|      {\\n   212|        \\\"id\\\": \\\"escrituras\\\",\\n   213|        \\\"icon\\\": \\\"scroll-text\\\",\\n   214|        \\\"title\\\": \\\"Escrituras Públicas\\\",\\n   215|        \\\"description\\\": \\\"Todo acto que requiera escritura pública según la ley paraguaya. Incluye compraventa de inmuebles, permutas, hipotecas, anticresis, servidumbres, constitución de sociedades, actas de asamblea y más.\\\",\\n   216|        \\\"features\\\": [\\n   217|          \\\"Compraventa de inmuebles urbanos y rurales\\\",\\n   218|          \\\"Hipotecas y anticresis\\\",\\n   219|          \\\"Constitución de SRL, SA y EAS\\\",\\n   220|          \\\"Compraventa de vehículos y embarcaciones\\\",\\n   221|          \\\"Permutas y donaciones\\\",\\n   222|          \\\"Actas de asamblea y directorio\\\"\\n   223|        ],\\n   224|        \\\"process\\\": [\\n   225|          \\\"Reunión inicial para revisar documentación\\\",\\n   226|          \\\"Redacción de minuta\\\",\\n   227|          \\\"Lectura y firma del documento\\\",\\n   228|          \\\"Protocolización en el registro notarial\\\",\\n   229|          \\\"Registro ante la DNIT/DGRRCC si corresponde\\\"\\n   230|        ]\\n   231|      },\\n   232|      {\\n   233|        \\\"id\\\": \\\"poderes\\\",\\n   234|        \\\"icon\\\": \\\"file-signature\\\",\\n   235|        \\\"title\\\": \\\"Poderes\\\",\\n   236|        \\\"description\\\": \\\"Otorgamiento de poderes generales y especiales para representación en actos judiciales, administrativos, comerciales y personales.\\\",\\n   237|        \\\"features\\\": [\\n   238|          \\\"Poder general para administrar bienes\\\",\\n   239|          \\\"Poder especial para juicios\\\",\\n   240|          \\\"Poder para trámites ante DNIT, IPS, MTESS\\\",\\n   241|          \\\"Poder para representación societaria\\\",\\n   242|          \\\"Poder para trámites bancarios\\\",\\n   243|          \\\"Revocación de poderes\\\"\\n   244|        ],\\n   245|        \\\"process\\\": [\\n   246|          \\\"Identificar el alcance del poder necesario\\\",\\n   247|          \\\"Redacción del instrumento\\\",\\n   248|          \\\"Firma ante escribano\\\",\\n   249|          \\\"Registro si corresponde\\\"\\n   250|        ]\\n   251|      },\\n   252|      {\\n   253|        \\\"id\\\": \\\"contratos\\\",\\n   254|        \\\"icon\\\": \\\"file-text\\\",\\n   255|        \\\"title\\\": \\\"Contratos\\\",\\n   256|        \\\"description\\\": \\\"Redacción, revisión y certificación de contratos de diversa naturaleza. Garantizamos que el documento refleje fielmente la voluntad de las partes.\\\",\\n   257|        \\\"features\\\": [\\n   258|          \\\"Contratos de alquiler\\\",\\n   259|          \\\"Contratos de préstamo con o sin garantía\\\",\\n   260|          \\\"Contratos de fideicomiso\\\",\\n   261|          \\\"Cesión de derechos\\\",\\n   262|          \\\"Contratos de servicios profesionales\\\",\\n   263|          \\\"Contratos de construcción\\\"\\n   264|        ],\\n   265|        \\\"process\\\": [\\n   266|          \\\"Análisis de necesidades y voluntad de las partes\\\",\\n   267|          \\\"Redacción del contrato\\\",\\n   268|          \\\"Revisión conjunta con las partes\\\",\\n   269|          \\\"Firma ante escribano\\\"\\n   270|        ]\\n   271|      },\\n   272|      {\\n   273|        \\\"id\\\": \\\"legalizaciones\\\",\\n   274|        \\\"icon\\\": \\\"stamp\\\",\\n   275|        \\\"title\\\": \\\"Legalizaciones y Apostillas\\\",\\n   276|        \\\"description\\\": \\\"Gestionamos la legalización de documentos públicos y la apostilla de La Haya para que tus documentos tengan validez en el extranjero.\\\",\\n   277|        \\\"features\\\": [\\n   278|          \\\"Apostilla de La Haya ante MRE\\\",\\n   279|          \\\"Legalización de documentos para uso en Paraguay desde el exterior\\\",\\n   280|          \\\"Autenticación de firmas\\\",\\n   281|          \\\"Certificación de copias\\\",\\n   282|          \\\"Traducción certificada de documentos\\\",\\n   283|          \\\"Legalización de diplomas y títulos\\\"\\n   284|        ],\\n   285|        \\\"process\\\": [\\n   286|          \\\"Revisión del documento a legalizar\\\",\\n   287|          \\\"Gestión ante las autoridades correspondientes\\\",\\n   288|          \\\"Apostillado o legalización\\\",\\n   289|          \\\"Entrega del documento listo para uso internacional\\\"\\n   290|        ]\\n   291|      },\\n   292|      {\\n   293|        \\\"id\\\": \\\"sucesiones\\\",\\n   294|        \\\"icon\\\": \\\"landmark\\\",\\n   295|        \\\"title\\\": \\\"Sucesiones y Testamentos\\\",\\n   296|        \\\"description\\\": \\\"Asistencia integral en procesos sucesorios. Testamentos, declaratorias de herederos, partición de bienes y administración de herencias.\\\",\\n   297|        \\\"features\\\": [\\n   298|          \\\"Testamento ológrafo, abierto y cerrado\\\",\\n   299|          \\\"Declaratoria de herederos\\\",\\n   300|          \\\"Sucesión intestada\\\",\\n   301|\", \"total_lines\": 520, \"file_size\": 25731, \"truncated\": true, \"hint\": \"Use offset=301 to continue reading (showing 101-300 of 520 lines)\", \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_tCQ2wVfK4oOMQhRA032G7663"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_cbRpUI9cXIPPhQtK7CgQ5807",
+          "call_id": "call_00_cbRpUI9cXIPPhQtK7CgQ5807",
+          "response_item_id": "fc_00_cbRpUI9cXIPPhQtK7CgQ5807",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"limit\": 220, \"offset\": 301, \"path\": \"/root/escribania-paraguay/content/es.json\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"   301|          \\\"Sucesión testamentaria\\\",\\n   302|          \\\"Partición y adjudicación de bienes\\\",\\n   303|          \\\"Aceptación y renuncia de herencia\\\"\\n   304|        ],\\n   305|        \\\"process\\\": [\\n   306|          \\\"Evaluación del patrimonio del causante\\\",\\n   307|          \\\"Identificación de herederos\\\",\\n   308|          \\\"Preparación de documentación\\\",\\n   309|          \\\"Inicio del proceso sucesorio\\\",\\n   310|          \\\"Partición y adjudicación de bienes\\\",\\n   311|          \\\"Inscripción en registros públicos\\\"\\n   312|        ]\\n   313|      },\\n   314|      {\\n   315|        \\\"id\\\": \\\"societario\\\",\\n   316|        \\\"icon\\\": \\\"building\\\",\\n   317|        \\\"title\\\": \\\"Actos Societarios\\\",\\n   318|        \\\"description\\\": \\\"Asistencia en la constitución, modificación y disolución de sociedades. Redacción de contratos sociales, actas y más.\\\",\\n   319|        \\\"features\\\": [\\n   320|          \\\"Constitución de SRL, SA, EAS y Unipersonal\\\",\\n   321|          \\\"Modificación de contratos sociales\\\",\\n   322|          \\\"Aumento y reducción de capital\\\",\\n   323|          \\\"Transformación, fusión y escisión\\\",\\n   324|          \\\"Disolución y liquidación\\\",\\n   325|          \\\"Actas de asamblea y directorio\\\"\\n   326|        ],\\n   327|        \\\"process\\\": [\\n   328|          \\\"Definición del tipo societario\\\",\\n   329|          \\\"Redacción del contrato social/estatuto\\\",\\n   330|          \\\"Constitución por escritura pública\\\",\\n   331|          \\\"Inscripción en la DGRRCC\\\",\\n   332|          \\\"Obtención del RUC\\\"\\n   333|        ]\\n   334|      }\\n   335|    ],\\n   336|    \\\"cta\\\": {\\n   337|      \\\"title\\\": \\\"¿Necesitás un servicio que no ves aquí?\\\",\\n   338|      \\\"subtitle\\\": \\\"Contactanos. Resolvemos consultas notariales de todo tipo.\\\",\\n   339|      \\\"buttonText\\\": \\\"Consultar Ahora\\\",\\n   340|      \\\"buttonHref\\\": \\\"https://wa.me/{{whatsapp}}?text={{whatsappMessage}}\\\"\\n   341|    }\\n   342|  },\\n   343|  \\\"nosotrosPage\\\": {\\n   344|    \\\"seo\\\": {\\n   345|      \\\"title\\\": \\\"Sobre Nosotros | {{businessName}}\\\",\\n   346|      \\\"description\\\": \\\"Conocé a nuestro equipo de escribanos públicos en Paraguay. Años de experiencia y compromiso con la seguridad jurídica.\\\"\\n   347|    },\\n   348|    \\\"hero\\\": {\\n   349|      \\\"headline\\\": \\\"Sobre Nosotros\\\",\\n   350|      \\\"subheadline\\\": \\\"Compromiso con la fe pública y la seguridad jurídica en Paraguay\\\"\\n   351|    },\\n   352|    \\\"intro\\\": {\\n   353|      \\\"title\\\": \\\"Nuestra Historia\\\",\\n   354|      \\\"content\\\": \\\"Somos una escribanía con amplia trayectoria en el ámbito notarial paraguayo. Nuestra práctica se basa en los principios de legalidad, seguridad jurídica y servicio al cliente. Cada documento que pasa por nuestras manos es tratado con el máximo rigor profesional y cuidado. Entendemos que detrás de cada trámite hay personas con necesidades, plazos y expectativas. Por eso trabajamos con empatía, claridad y eficiencia.\\\",\\n   355|      \\\"vision\\\": \\\"Ser la escribanía de referencia en Paraguay, reconocida por nuestra excelencia técnica, calidez en el trato y compromiso con la seguridad jurídica.\\\",\\n   356|      \\\"mission\\\": \\\"Brindar servicios notariales de la más alta calidad, garantizando la legalidad y seguridad de cada acto, con un trato personalizado que hace la diferencia.\\\"\\n   357|    },\\n   358|    \\\"values\\\": [\\n   359|      { \\\"icon\\\": \\\"shield-check\\\", \\\"title\\\": \\\"Integridad\\\", \\\"description\\\": \\\"Actuamos con absoluta honestidad y transparencia en cada acto notarial.\\\" },\\n   360|      { \\\"icon\\\": \\\"gavel\\\", \\\"title\\\": \\\"Excelencia Jurídica\\\", \\\"description\\\": \\\"Nos mantenemos actualizados sobre la legislación y jurisprudencia paraguaya.\\\" },\\n   361|      { \\\"icon\\\": \\\"users\\\", \\\"title\\\": \\\"Servicio Personalizado\\\", \\\"description\\\": \\\"Cada cliente recibe atención dedicada y explicaciones claras.\\\" },\\n   362|      { \\\"icon\\\": \\\"clock\\\", \\\"title\\\": \\\"Eficiencia\\\", \\\"description\\\": \\\"Optimizamos cada proceso para brindarte respuestas rápidas sin sacrificar calidad.\\\" }\\n   363|    ],\\n   364|    \\\"team\\\": [\\n   365|      {\\n   366|        \\\"name\\\": \\\"Dr. Juan Pérez\\\",\\n   367|        \\\"role\\\": \\\"Escribano Público Titular\\\",\\n   368|        \\\"description\\\": \\\"Matriculado en el Colegio de Escribanos del Paraguay. Más de 15 años de experiencia en derecho notarial y registral.\\\",\\n   369|        \\\"education\\\": \\\"Universidad Nacional de Asunción\\\",\\n   370|        \\\"image\\\": \\\"/images/team/placeholder-team.jpg\\\"\\n   371|      },\\n   372|      {\\n   373|        \\\"name\\\": \\\"Dra. María López\\\",\\n   374|        \\\"role\\\": \\\"Escribana Asociada\\\",\\n   375|        \\\"description\\\": \\\"Especialista en derecho societario y contratos. Amplia experiencia en constitución de empresas y actos comerciales.\\\",\\n   376|        \\\"education\\\": \\\"Universidad Católica de Asunción\\\",\\n   377|        \\\"image\\\": \\\"/images/team/placeholder-team.jpg\\\"\\n   378|      },\\n   379|      {\\n   380|        \\\"name\\\": \\\"Abg. Carlos Martínez\\\",\\n   381|        \\\"role\\\": \\\"Asesor Legal\\\",\\n   382|        \\\"description\\\": \\\"Especialista en sucesiones y derecho de familia. Encargado del área de testamentos y procesos sucesorios.\\\",\\n   383|        \\\"education\\\": \\\"Universidad Nacional de Asunción\\\",\\n   384|        \\\"image\\\": \\\"/images/team/placeholder-team.jpg\\\"\\n   385|      }\\n   386|    ],\\n   387|    \\\"cta\\\": {\\n   388|      \\\"title\\\": \\\"Agendá una consulta con nuestro equipo\\\",\\n   389|      \\\"subtitle\\\": \\\"Sin costo y sin compromiso. Te orientamos sobre tu caso.\\\",\\n   390|      \\\"buttonText\\\": \\\"Contactar Ahora\\\",\\n   391|      \\\"buttonHref\\\": \\\"https://wa.me/{{whatsapp}}?text={{whatsappMessage}}\\\"\\n   392|    }\\n   393|  },\\n   394|  \\\"contactoPage\\\": {\\n   395|    \\\"seo\\\": {\\n   396|      \\\"title\\\": \\\"Contacto | {{businessName}}\\\",\\n   397|      \\\"description\\\": \\\"Contactanos para consultas notariales. Estamos en Asunción, Paraguay. Atendemos por WhatsApp, teléfono y en oficina.\\\"\\n   398|    },\\n   399|    \\\"hero\\\": {\\n   400|      \\\"headline\\\": \\\"Contactanos\\\",\\n   401|      \\\"subheadline\\\": \\\"Estamos para ayudarte con tu trámite notarial\\\"\\n   402|    },\\n   403|    \\\"info\\\": {\\n   404|      \\\"title\\\": \\\"Información de Contacto\\\",\\n   405|      \\\"items\\\": [\\n   406|        { \\\"icon\\\": \\\"map-pin\\\", \\\"label\\\": \\\"Dirección\\\", \\\"value\\\": \\\"Asunción, Paraguay\\\" },\\n   407|        { \\\"icon\\\": \\\"phone\\\", \\\"label\\\": \\\"Teléfono\\\", \\\"value\\\": \\\"+595 {{phone}}\\\" },\\n   408|        { \\\"icon\\\": \\\"mail\\\", \\\"label\\\": \\\"Email\\\", \\\"value\\\": \\\"{{email}}\\\" },\\n   409|        { \\\"icon\\\": \\\"clock\\\", \\\"label\\\": \\\"Horario\\\", \\\"value\\\": \\\"Lunes a Viernes: 8:00 - 17:00 | Sábados: 8:00 - 12:00\\\" }\\n   410|      ]\\n   411|    },\\n   412|    \\\"form\\\": {\\n   413|      \\\"title\\\": \\\"Envianos tu consulta\\\",\\n   414|      \\\"subtitle\\\": \\\"Respondemos en menos de 24 horas hábiles\\\",\\n   415|      \\\"fields\\\": [\\n   416|        { \\\"name\\\": \\\"nombre\\\", \\\"label\\\": \\\"Nombre completo\\\", \\\"type\\\": \\\"text\\\", \\\"required\\\": true },\\n   417|        { \\\"name\\\": \\\"email\\\", \\\"label\\\": \\\"Correo electrónico\\\", \\\"type\\\": \\\"email\\\", \\\"required\\\": true },\\n   418|        { \\\"name\\\": \\\"telefono\\\", \\\"label\\\": \\\"Teléfono\\\", \\\"type\\\": \\\"tel\\\", \\\"required\\\": true },\\n   419|        { \\\"name\\\": \\\"servicio\\\", \\\"label\\\": \\\"Servicio de interés\\\", \\\"type\\\": \\\"select\\\", \\\"options\\\": [\\\"Escrituras\\\", \\\"Poderes\\\", \\\"Contratos\\\", \\\"Legalizaciones\\\", \\\"Sucesiones\\\", \\\"Societario\\\", \\\"Otro\\\"], \\\"required\\\": false },\\n   420|        { \\\"name\\\": \\\"mensaje\\\", \\\"label\\\": \\\"Mensaje\\\", \\\"type\\\": \\\"textarea\\\", \\\"required\\\": true }\\n   421|      ],\\n   422|      \\\"submitText\\\": \\\"Enviar Consulta\\\"\\n   423|    },\\n   424|    \\\"cta\\\": {\\n   425|      \\\"title\\\": \\\"¿Preferís una respuesta inmediata?\\\",\\n   426|      \\\"subtitle\\\": \\\"Escribinos por WhatsApp y te respondemos al instante\\\",\\n   427|      \\\"buttonText\\\": \\\"Escribir por WhatsApp\\\",\\n   428|      \\\"buttonHref\\\": \\\"https://wa.me/{{whatsapp}}?text={{whatsappMessage}}\\\"\\n   429|    }\\n   430|  },\\n   431|  \\\"faqPage\\\": {\\n   432|    \\\"seo\\\": {\\n   433|      \\\"title\\\": \\\"Preguntas Frecuentes | {{businessName}}\\\",\\n   434|      \\\"description\\\": \\\"Respuestas a las preguntas más comunes sobre servicios notariales en Paraguay.\\\"\\n   435|    },\\n   436|    \\\"hero\\\": {\\n   437|      \\\"headline\\\": \\\"Preguntas Frecuentes\\\",\\n   438|      \\\"subheadline\\\": \\\"Respondemos tus dudas sobre trámites notariales\\\"\\n   439|    },\\n   440|    \\\"categories\\\": [\\n   441|      {\\n   442|        \\\"title\\\": \\\"Trámites Generales\\\",\\n   443|        \\\"items\\\": [\\n   444|          {\\n   445|            \\\"q\\\": \\\"¿Qué documentos necesito para identificarme ante el escribano?\\\",\\n   446|            \\\"a\\\": \\\"Necesitás tu cédula de identidad civil vigente (paraguaya) o pasaporte vigente (extranjeros). Para actos que requieran capacidad especial, pueden solicitarse documentos adicionales.\\\"\\n   447|          },\\n   448|          {\\n   449|            \\\"q\\\": \\\"¿Cuánto cuesta una consulta inicial?\\\",\\n   450|            \\\"a\\\": \\\"La consulta inicial es sin costo. Te asesoramos sobre la documentación, el proceso y los costos del servicio notarial que necesitás.\\\"\\n   451|          },\\n   452|          {\\n   453|            \\\"q\\\": \\\"¿Puedo firmar un documento si estoy en el extranjero?\\\",\\n   454|            \\\"a\\\": \\\"Sí. Podés firmar ante un notario en tu país de residencia, apostillar/legalizar el documento y enviarlo a Paraguay. También podemos coordinar videoconferencia para ciertos actos.\\\"\\n   455|          }\\n   456|        ]\\n   457|      },\\n   458|      {\\n   459|        \\\"title\\\": \\\"Inmuebles y Propiedades\\\",\\n   460|        \\\"items\\\": [\\n   461|          {\\n   462|            \\\"q\\\": \\\"¿Qué impuestos debo pagar al comprar un inmueble?\\\",\\n   463|            \\\"a\\\": \\\"El comprador paga el Impuesto a la Transferencia de Inmuebles (ITI) del 4% sobre el valor fiscal actualizado. También hay gastos de registro y honorarios notariales. Te damos el presupuesto completo antes de iniciar.\\\"\\n   464|          },\\n   465|          {\\n   466|            \\\"q\\\": \\\"¿Es obligatorio firmar escritura pública para comprar un inmueble?\\\",\\n   467|            \\\"a\\\": \\\"Sí, según el Código Civil paraguayo, la transferencia de dominio de inmuebles debe hacerse por escritura pública. Es la única forma de inscribir la propiedad a tu nombre en la Dirección General de Registros Públicos.\\\"\\n   468|          }\\n   469|        ]\\n   470|      },\\n   471|      {\\n   472|        \\\"title\\\": \\\"Empresas y Sociedades\\\",\\n   473|        \\\"items\\\": [\\n   474|          {\\n   475|            \\\"q\\\": \\\"¿Qué tipo de sociedad me conviene?\\\",\\n   476|            \\\"a\\\": \\\"Depende de tu actividad, capital y cantidad de socios. La SRL es ideal para PYMES, la SA para empresas grandes, y la EAS para pequeños emprendedores. Te asesoramos sin costo.\\\"\\n   477|          },\\n   478|          {\\n   479|            \\\"q\\\": \\\"¿Cuánto tiempo toma constituir una sociedad?\\\",\\n   480|            \\\"a\\\": \\\"Aproximadamente 2 a 4 semanas, incluyendo la escritura pública, inscripción en la DGRRCC y obtención del RUC. Podemos hacer el proceso en paralelo para agilizar.\\\"\\n   481|          }\\n   482|        ]\\n   483|      }\\n   484|    ]\\n   485|  },\\n   486|  \\\"privacidadPage\\\": {\\n   487|    \\\"seo\\\": {\\n   488|      \\\"title\\\": \\\"Política de Privacidad | {{businessName}}\\\",\\n   489|      \\\"description\\\": \\\"Política de privacidad y tratamiento de datos personales de {{businessName}}.\\\"\\n   490|    },\\n   491|    \\\"hero\\\": {\\n   492|      \\\"headline\\\": \\\"Política de Privacidad\\\",\\n   493|      \\\"subheadline\\\": \\\"Cómo protegemos tus datos personales\\\"\\n   494|    },\\n   495|    \\\"content\\\": {\\n   496|      \\\"sections\\\": [\\n   497|        {\\n   498|          \\\"title\\\": \\\"1. Información que recopilamos\\\",\\n   499|          \\\"text\\\": \\\"Recopilamos información personal que nos proporcionás voluntariamente al contactarnos, como nombre, correo electrónico, número de teléfono y datos de identificación necesarios para los servicios notariales.\\\"\\n   500|        },\\n   501|        {\\n   502|          \\\"title\\\": \\\"2. Uso de la información\\\",\\n   503|          \\\"text\\\": \\\"Usamos tu información exclusivamente para: brindar los servicios notariales solicitados, comunicarnos con vos sobre tu trámite, cumplir con obligaciones legales y regulatorias, y mejorar nuestros servicios.\\\"\\n   504|        },\\n   505|        {\\n   506|          \\\"title\\\": \\\"3. Protección de datos\\\",\\n   507|          \\\"text\\\": \\\"Implementamos medidas de seguridad técnicas y organizativas para proteger tus datos personales contra acceso no autorizado, pérdida o destrucción.\\\"\\n   508|        },\\n   509|        {\\n   510|          \\\"title\\\": \\\"4. Confidencialidad notarial\\\",\\n   511|          \\\"text\\\": \\\"Como escribanos, estamos sujetos al secreto profesional y a la confidencialidad notarial. La información que compartís con nosotros está protegida por ley.\\\"\\n   512|        },\\n   513|        {\\n   514|          \\\"title\\\": \\\"5. Tus derechos\\\",\\n   515|          \\\"text\\\": \\\"Tenés derecho a acceder, rectificar, cancelar y oponerte al tratamiento de tus datos personales. Contactanos para ejercer estos derechos.\\\"\\n   516|        }\\n   517|      ]\\n   518|    }\\n   519|  }\\n   520|}\\n   521|\", \"total_lines\": 520, \"file_size\": 25731, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_cbRpUI9cXIPPhQtK7CgQ5807"
+    },
+    {
+      "role": "assistant",
+      "content": "Now I have full context. Let me create all 13 component files, using the same patterns as the existing components.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_W8VmnWQlcD59qmwHgohN3494",
+          "call_id": "call_00_W8VmnWQlcD59qmwHgohN3494",
+          "response_item_id": "fc_00_W8VmnWQlcD59qmwHgohN3494",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/intro-section.tsx\", \"content\": \"import ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface IntroSectionProps {\\n  text: string\\n}\\n\\nexport default function IntroSection({ text }: IntroSectionProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding-sm\\\">\\n      <div className=\\\"container-page\\\">\\n        <ScrollReveal>\\n          <div className=\\\"max-w-4xl mx-auto\\\">\\n            <p className=\\\"text-foreground text-lg md:text-xl leading-relaxed text-center\\\">\\n              {text}\\n            </p>\\n          </div>\\n        </ScrollReveal>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_01_Jyn6HIyG2qgTRYnoBZE24788",
+          "call_id": "call_01_Jyn6HIyG2qgTRYnoBZE24788",
+          "response_item_id": "fc_01_Jyn6HIyG2qgTRYnoBZE24788",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/service-categories.tsx\", \"content\": \"import Link from 'next/link'\\nimport {\\n  ScrollText,\\n  FileSignature,\\n  FileText,\\n  Stamp,\\n  Landmark,\\n  Building2,\\n} from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\nconst iconMap: Record<string, React.ReactNode> = {\\n  'scroll-text': <ScrollText size={28} />,\\n  'file-signature': <FileSignature size={28} />,\\n  'file-text': <FileText size={28} />,\\n  stamp: <Stamp size={28} />,\\n  landmark: <Landmark size={28} />,\\n  building: <Building2 size={28} />,\\n}\\n\\ninterface CategoryItem {\\n  id: string\\n  icon: string\\n  title: string\\n  description: string\\n  features?: string[]\\n}\\n\\ninterface ServiceCategoriesProps {\\n  title: string\\n  categories: CategoryItem[]\\n}\\n\\nexport default function ServiceCategories({\\n  title,\\n  categories,\\n}: ServiceCategoriesProps) {\\n  return (\\n    <section className=\\\"bg-surface-alt section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8\\\">\\n          {categories.map((cat, i) => (\\n            <ScrollReveal key={cat.id} delay={i * 80}>\\n              <Link href={`/servicios/${cat.id}`}>\\n                <div className=\\\"group bg-surface border border-border rounded-xl p-6 md:p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:border-accent/30 h-full\\\">\\n                  <div className=\\\"text-accent mb-5 transition-transform duration-300 group-hover:scale-110\\\">\\n                    {iconMap[cat.icon] || <FileText size={28} />}\\n                  </div>\\n                  <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-3\\\">\\n                    {cat.title}\\n                  </h3>\\n                  <p className=\\\"text-muted text-sm leading-relaxed mb-4\\\">\\n                    {cat.description}\\n                  </p>\\n                  {cat.features && cat.features.length > 0 && (\\n                    <ul className=\\\"space-y-2\\\">\\n                      {cat.features.map((feat, j) => (\\n                        <li\\n                          key={j}\\n                          className=\\\"flex items-start gap-2 text-muted text-sm\\\"\\n                        >\\n                          <span className=\\\"text-accent mt-0.5 flex-shrink-0\\\">\\n                            &bull;\\n                          </span>\\n                          <span>{feat}</span>\\n                        </li>\\n                      ))}\\n                    </ul>\\n                  )}\\n                  <div className=\\\"mt-5 inline-flex items-center gap-1 text-accent font-accent font-medium text-sm group-hover:text-accent-light transition-colors\\\">\\n                    Ver más\\n                    <span className=\\\"text-lg leading-none\\\">&rarr;</span>\\n                  </div>\\n                </div>\\n              </Link>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_02_DB9KJQVb7eXkK5EMtj509069",
+          "call_id": "call_02_DB9KJQVb7eXkK5EMtj509069",
+          "response_item_id": "fc_02_DB9KJQVb7eXkK5EMtj509069",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/about-intro.tsx\", \"content\": \"import { Eye, Target } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface AboutIntroProps {\\n  title: string\\n  content: string\\n  vision: string\\n  mission: string\\n}\\n\\nexport default function AboutIntro({\\n  title,\\n  content,\\n  vision,\\n  mission,\\n}: AboutIntroProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <ScrollReveal>\\n          <div className=\\\"max-w-4xl mx-auto text-center mb-14\\\">\\n            <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-6\\\">\\n              {title}\\n            </h2>\\n            <p className=\\\"text-muted text-lg md:text-xl leading-relaxed\\\">\\n              {content}\\n            </p>\\n          </div>\\n        </ScrollReveal>\\n\\n        <div className=\\\"grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto\\\">\\n          <ScrollReveal delay={100}>\\n            <div className=\\\"bg-surface-alt border border-border rounded-xl p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n              <div className=\\\"inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 text-accent mb-6\\\">\\n                <Eye size={32} />\\n              </div>\\n              <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-4\\\">\\n                Visión\\n              </h3>\\n              <p className=\\\"text-muted text-sm leading-relaxed\\\">{vision}</p>\\n            </div>\\n          </ScrollReveal>\\n\\n          <ScrollReveal delay={200}>\\n            <div className=\\\"bg-surface-alt border border-border rounded-xl p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n              <div className=\\\"inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 text-accent mb-6\\\">\\n                <Target size={32} />\\n              </div>\\n              <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-4\\\">\\n                Misión\\n              </h3>\\n              <p className=\\\"text-muted text-sm leading-relaxed\\\">{mission}</p>\\n            </div>\\n          </ScrollReveal>\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_03_6ViYTdy1qUdhe4rBs7pk8709",
+          "call_id": "call_03_6ViYTdy1qUdhe4rBs7pk8709",
+          "response_item_id": "fc_03_6ViYTdy1qUdhe4rBs7pk8709",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/values-section.tsx\", \"content\": \"import { ShieldCheck, Gavel, Users, Clock } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\nconst iconMap: Record<string, React.ReactNode> = {\\n  'shield-check': <ShieldCheck size={28} />,\\n  gavel: <Gavel size={28} />,\\n  users: <Users size={28} />,\\n  clock: <Clock size={28} />,\\n}\\n\\ninterface ValueItem {\\n  icon: string\\n  title: string\\n  description: string\\n}\\n\\ninterface ValuesSectionProps {\\n  title: string\\n  items: ValueItem[]\\n}\\n\\nexport default function ValuesSection({ title, items }: ValuesSectionProps) {\\n  return (\\n    <section className=\\\"bg-background section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8\\\">\\n          {items.map((item, i) => (\\n            <ScrollReveal key={i} delay={i * 100}>\\n              <div className=\\\"bg-surface border border-border rounded-xl p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n                <div className=\\\"inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent/10 text-accent mb-5\\\">\\n                  {iconMap[item.icon] || <ShieldCheck size={28} />}\\n                </div>\\n                <h3 className=\\\"font-heading text-lg font-semibold text-foreground mb-3\\\">\\n                  {item.title}\\n                </h3>\\n                <p className=\\\"text-muted text-sm leading-relaxed\\\">\\n                  {item.description}\\n                </p>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_04_x2yo0y6vk5QdJHwGNFbL4995",
+          "call_id": "call_04_x2yo0y6vk5QdJHwGNFbL4995",
+          "response_item_id": "fc_04_x2yo0y6vk5QdJHwGNFbL4995",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/team-section.tsx\", \"content\": \"import { User } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface TeamMember {\\n  name: string\\n  role: string\\n  description: string\\n  education: string\\n  image: string\\n}\\n\\ninterface TeamSectionProps {\\n  title: string\\n  items: TeamMember[]\\n}\\n\\nexport default function TeamSection({ title, items }: TeamSectionProps) {\\n  return (\\n    <section className=\\\"bg-surface-alt section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8\\\">\\n          {items.map((member, i) => (\\n            <ScrollReveal key={i} delay={i * 100}>\\n              <div className=\\\"bg-surface border border-border rounded-xl p-6 md:p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n                <div className=\\\"w-24 h-24 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-5\\\">\\n                  <User size={40} className=\\\"text-accent\\\" />\\n                </div>\\n                <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-1\\\">\\n                  {member.name}\\n                </h3>\\n                <p className=\\\"text-accent font-accent font-medium text-sm mb-4\\\">\\n                  {member.role}\\n                </p>\\n                <p className=\\\"text-muted text-sm leading-relaxed mb-4\\\">\\n                  {member.description}\\n                </p>\\n                <div className=\\\"text-muted text-xs border-t border-border pt-4\\\">\\n                  <span className=\\\"font-medium text-foreground/70\\\">\\n                    {member.education}\\n                  </span>\\n                </div>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_05_IGdmNoWL9Xi82b0cadhH6342",
+          "call_id": "call_05_IGdmNoWL9Xi82b0cadhH6342",
+          "response_item_id": "fc_05_IGdmNoWL9Xi82b0cadhH6342",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/contact-info.tsx\", \"content\": \"import { MapPin, Phone, Mail, Clock } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\nconst iconMap: Record<string, React.ReactNode> = {\\n  'map-pin': <MapPin size={28} />,\\n  phone: <Phone size={28} />,\\n  mail: <Mail size={28} />,\\n  clock: <Clock size={28} />,\\n}\\n\\ninterface ContactItem {\\n  icon: string\\n  label: string\\n  value: string\\n}\\n\\ninterface ContactInfoProps {\\n  title: string\\n  items: ContactItem[]\\n}\\n\\nexport default function ContactInfo({ title, items }: ContactInfoProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8\\\">\\n          {items.map((item, i) => (\\n            <ScrollReveal key={i} delay={i * 100}>\\n              <div className=\\\"bg-surface-alt border border-border rounded-xl p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n                <div className=\\\"inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent/10 text-accent mb-5\\\">\\n                  {iconMap[item.icon] || <MapPin size={28} />}\\n                </div>\\n                <p className=\\\"text-muted text-sm font-accent font-medium uppercase tracking-wider mb-2\\\">\\n                  {item.label}\\n                </p>\\n                <p className=\\\"font-heading font-semibold text-foreground\\\">\\n                  {item.value}\\n                </p>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_06_I0XXNwgPolJsXwC7eznd6458",
+          "call_id": "call_06_I0XXNwgPolJsXwC7eznd6458",
+          "response_item_id": "fc_06_I0XXNwgPolJsXwC7eznd6458",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/contact-form-section.tsx\", \"content\": \"'use client'\\n\\nimport { useState } from 'react'\\nimport { Send } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface FormField {\\n  name: string\\n  label: string\\n  type: string\\n  required: boolean\\n  options?: string[]\\n}\\n\\ninterface ContactFormSectionProps {\\n  title: string\\n  subtitle: string\\n  fields: FormField[]\\n  submitText: string\\n}\\n\\nexport default function ContactFormSection({\\n  title,\\n  subtitle,\\n  fields,\\n  submitText,\\n}: ContactFormSectionProps) {\\n  const [submitted, setSubmitted] = useState(false)\\n  const [submitting, setSubmitting] = useState(false)\\n\\n  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {\\n    e.preventDefault()\\n    setSubmitting(true)\\n    // Simulate form submission — in production this would go to a backend\\n    setTimeout(() => {\\n      setSubmitting(false)\\n      setSubmitted(true)\\n    }, 800)\\n  }\\n\\n  return (\\n    <section className=\\\"bg-surface-alt section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start\\\">\\n          <ScrollReveal>\\n            <div>\\n              <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n                {title}\\n              </h2>\\n              <p className=\\\"text-muted text-lg leading-relaxed\\\">{subtitle}</p>\\n            </div>\\n          </ScrollReveal>\\n\\n          <ScrollReveal delay={100}>\\n            {submitted ? (\\n              <div className=\\\"bg-surface border border-accent/30 rounded-xl p-8 text-center\\\">\\n                <div className=\\\"inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 text-accent mb-5\\\">\\n                  <Send size={28} />\\n                </div>\\n                <h3 className=\\\"font-heading text-xl font-semibold text-foreground mb-2\\\">\\n                  Consulta enviada\\n                </h3>\\n                <p className=\\\"text-muted text-sm\\\">\\n                  Gracias por tu consulta. Te responderemos a la brevedad.\\n                </p>\\n              </div>\\n            ) : (\\n              <form\\n                onSubmit={handleSubmit}\\n                className=\\\"bg-surface border border-border rounded-xl p-6 md:p-8 space-y-5\\\"\\n              >\\n                {fields.map((field) => (\\n                  <div key={field.name}>\\n                    <label\\n                      htmlFor={field.name}\\n                      className=\\\"block text-sm font-accent font-medium text-foreground mb-2\\\"\\n                    >\\n                      {field.label}\\n                      {field.required && (\\n                        <span className=\\\"text-accent ml-1\\\">*</span>\\n                      )}\\n                    </label>\\n                    {field.type === 'select' && field.options ? (\\n                      <select\\n                        id={field.name}\\n                        name={field.name}\\n                        className=\\\"w-full px-4 py-3 bg-surface-alt border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all\\\"\\n                      >\\n                        <option value=\\\"\\\">Seleccionar...</option>\\n                        {field.options.map((opt) => (\\n                          <option key={opt} value={opt}>\\n                            {opt}\\n                          </option>\\n                        ))}\\n                      </select>\\n                    ) : field.type === 'textarea' ? (\\n                      <textarea\\n                        id={field.name}\\n                        name={field.name}\\n                        rows={4}\\n                        required={field.required}\\n                        className=\\\"w-full px-4 py-3 bg-surface-alt border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all resize-vertical\\\"\\n                      />\\n                    ) : (\\n                      <input\\n                        id={field.name}\\n                        name={field.name}\\n                        type={field.type}\\n                        required={field.required}\\n                        className=\\\"w-full px-4 py-3 bg-surface-alt border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all\\\"\\n                      />\\n                    )}\\n                  </div>\\n                ))}\\n                <button\\n                  type=\\\"submit\\\"\\n                  disabled={submitting}\\n                  className=\\\"w-full inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent/90 text-primary font-accent font-semibold px-8 py-3.5 rounded-lg transition-all text-base disabled:opacity-60 disabled:cursor-not-allowed\\\"\\n                >\\n                  {submitting ? (\\n                    <>Enviando...</>\\n                  ) : (\\n                    <>\\n                      <Send size={18} />\\n                      {submitText}\\n                    </>\\n                  )}\\n                </button>\\n              </form>\\n            )}\\n          </ScrollReveal>\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_07_GkYPtJxL7pRZU8VFKCyI7202",
+          "call_id": "call_07_GkYPtJxL7pRZU8VFKCyI7202",
+          "response_item_id": "fc_07_GkYPtJxL7pRZU8VFKCyI7202",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/faq-categories.tsx\", \"content\": \"'use client'\\n\\nimport { useState } from 'react'\\nimport { ChevronDown } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface FAQItem {\\n  q: string\\n  a: string\\n}\\n\\ninterface FAQCategory {\\n  title: string\\n  items: FAQItem[]\\n}\\n\\ninterface FAQCategoriesProps {\\n  categories: FAQCategory[]\\n}\\n\\nexport default function FAQCategories({ categories }: FAQCategoriesProps) {\\n  const [openIndices, setOpenIndices] = useState<\\n    Record<string, number | null>\\n  >({})\\n\\n  const toggle = (catIndex: number, itemIndex: number) => {\\n    const key = String(catIndex)\\n    setOpenIndices((prev) => ({\\n      ...prev,\\n      [key]: prev[key] === itemIndex ? null : itemIndex,\\n    }))\\n  }\\n\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"max-w-3xl mx-auto space-y-12\\\">\\n          {categories.map((category, catIndex) => (\\n            <ScrollReveal key={catIndex} delay={catIndex * 80}>\\n              <div>\\n                <h3 className=\\\"font-heading text-xl md:text-2xl font-bold text-foreground mb-6 pb-3 border-b border-border\\\">\\n                  {category.title}\\n                </h3>\\n                <div className=\\\"space-y-3\\\">\\n                  {category.items.map((item, itemIndex) => {\\n                    const key = String(catIndex)\\n                    const isOpen = openIndices[key] === itemIndex\\n                    return (\\n                      <div\\n                        key={itemIndex}\\n                        className=\\\"border border-border rounded-xl overflow-hidden transition-all duration-200\\\"\\n                      >\\n                        <button\\n                          onClick={() => toggle(catIndex, itemIndex)}\\n                          className={`w-full flex items-center justify-between text-left px-6 py-4 md:py-5 transition-colors ${\\n                            isOpen\\n                              ? 'bg-accent/5 text-foreground'\\n                              : 'bg-surface-alt hover:bg-surface-alt/80 text-foreground'\\n                          }`}\\n                        >\\n                          <span className=\\\"font-accent font-medium text-sm md:text-base pr-4\\\">\\n                            {item.q}\\n                          </span>\\n                          <ChevronDown\\n                            size={18}\\n                            className={`flex-shrink-0 text-accent transition-transform duration-300 ${\\n                              isOpen ? 'rotate-180' : ''\\n                            }`}\\n                          />\\n                        </button>\\n                        <div\\n                          className={`overflow-hidden transition-all duration-300 ease-in-out ${\\n                            isOpen ? 'max-h-96' : 'max-h-0'\\n                          }`}\\n                        >\\n                          <div className=\\\"px-6 pb-5 pt-2 text-muted text-sm leading-relaxed\\\">\\n                            {item.a}\\n                          </div>\\n                        </div>\\n                      </div>\\n                    )\\n                  })}\\n                </div>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_08_qRsxmQ7LzKfZuLXjy3co0535",
+          "call_id": "call_08_qRsxmQ7LzKfZuLXjy3co0535",
+          "response_item_id": "fc_08_qRsxmQ7LzKfZuLXjy3co0535",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/privacy-content.tsx\", \"content\": \"import ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface Section {\\n  title: string\\n  text: string\\n}\\n\\ninterface PrivacyContentProps {\\n  sections: Section[]\\n}\\n\\nexport default function PrivacyContent({ sections }: PrivacyContentProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"max-w-3xl mx-auto space-y-10\\\">\\n          {sections.map((section, i) => (\\n            <ScrollReveal key={i} delay={i * 60}>\\n              <div>\\n                <h2 className=\\\"font-heading text-xl md:text-2xl font-bold text-foreground mb-4\\\">\\n                  {section.title}\\n                </h2>\\n                <p className=\\\"text-muted leading-relaxed\\\">{section.text}</p>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_09_REto411AJTnuSFHBEtNH7341",
+          "call_id": "call_09_REto411AJTnuSFHBEtNH7341",
+          "response_item_id": "fc_09_REto411AJTnuSFHBEtNH7341",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/service-detail-hero.tsx\", \"content\": \"interface ServiceDetailHeroProps {\\n  headline: string\\n  subheadline: string\\n}\\n\\nexport default function ServiceDetailHero({\\n  headline,\\n  subheadline,\\n}: ServiceDetailHeroProps) {\\n  return (\\n    <section className=\\\"bg-[var(--color-primary)] text-white\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"py-24 md:py-32 text-center\\\">\\n          <h1 className=\\\"font-heading text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6\\\">\\n            {headline}\\n          </h1>\\n          <p className=\\\"text-white/70 text-lg md:text-xl max-w-2xl mx-auto\\\">\\n            {subheadline}\\n          </p>\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_10_6QyCBrRFQZ98DihvOCNF3695",
+          "call_id": "call_10_6QyCBrRFQZ98DihvOCNF3695",
+          "response_item_id": "fc_10_6QyCBrRFQZ98DihvOCNF3695",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/service-benefits.tsx\", \"content\": \"import { ShieldCheck, Gavel, Archive, Clock } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\nconst iconMap: Record<string, React.ReactNode> = {\\n  'shield-check': <ShieldCheck size={28} />,\\n  gavel: <Gavel size={28} />,\\n  archive: <Archive size={28} />,\\n  clock: <Clock size={28} />,\\n}\\n\\ninterface BenefitItem {\\n  icon: string\\n  title: string\\n  description: string\\n}\\n\\ninterface ServiceBenefitsProps {\\n  title: string\\n  items: BenefitItem[]\\n}\\n\\nexport default function ServiceBenefits({\\n  title,\\n  items,\\n}: ServiceBenefitsProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8\\\">\\n          {items.map((item, i) => (\\n            <ScrollReveal key={i} delay={i * 100}>\\n              <div className=\\\"bg-surface-alt border border-border rounded-xl p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-md\\\">\\n                <div className=\\\"inline-flex items-center justify-center w-14 h-14 rounded-full bg-accent/10 text-accent mb-5\\\">\\n                  {iconMap[item.icon] || <ShieldCheck size={28} />}\\n                </div>\\n                <h3 className=\\\"font-heading text-lg font-semibold text-foreground mb-3\\\">\\n                  {item.title}\\n                </h3>\\n                <p className=\\\"text-muted text-sm leading-relaxed\\\">\\n                  {item.description}\\n                </p>\\n              </div>\\n            </ScrollReveal>\\n          ))}\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_11_MDcotO3RQGwuXPD9otpm3704",
+          "call_id": "call_11_MDcotO3RQGwuXPD9otpm3704",
+          "response_item_id": "fc_11_MDcotO3RQGwuXPD9otpm3704",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/service-items-list.tsx\", \"content\": \"import { Check } from 'lucide-react'\\nimport ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface ServiceItemsListProps {\\n  title: string\\n  items: string[]\\n  icon?: string\\n}\\n\\nexport default function ServiceItemsList({\\n  title,\\n  items,\\n}: ServiceItemsListProps) {\\n  return (\\n    <section className=\\\"bg-surface-alt section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n        </div>\\n\\n        <div className=\\\"max-w-4xl mx-auto\\\">\\n          <div className=\\\"grid grid-cols-1 md:grid-cols-2 gap-4\\\">\\n            {items.map((item, i) => (\\n              <ScrollReveal key={i} delay={i * 50}>\\n                <div className=\\\"flex items-start gap-3 bg-surface border border-border rounded-lg p-4 transition-all duration-200 hover:border-accent/30 hover:shadow-sm\\\">\\n                  <Check\\n                    size={20}\\n                    className=\\\"text-accent flex-shrink-0 mt-0.5\\\"\\n                  />\\n                  <span className=\\\"text-foreground text-sm leading-relaxed\\\">\\n                    {item}\\n                  </span>\\n                </div>\\n              </ScrollReveal>\\n            ))}\\n          </div>\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        },
+        {
+          "id": "call_12_74WWFga2qTYsEsqrcuzH7436",
+          "call_id": "call_12_74WWFga2qTYsEsqrcuzH7436",
+          "response_item_id": "fc_12_74WWFga2qTYsEsqrcuzH7436",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components/service-process.tsx\", \"content\": \"import ScrollReveal from '@/components/animations/scroll-reveal'\\n\\ninterface ProcessStep {\\n  number: string\\n  description: string\\n}\\n\\ninterface ServiceProcessProps {\\n  title: string\\n  subtitle: string\\n  steps: ProcessStep[]\\n}\\n\\nexport default function ServiceProcess({\\n  title,\\n  subtitle,\\n  steps,\\n}: ServiceProcessProps) {\\n  return (\\n    <section className=\\\"bg-surface section-padding\\\">\\n      <div className=\\\"container-page\\\">\\n        <div className=\\\"text-center mb-14\\\">\\n          <h2 className=\\\"font-heading text-3xl md:text-4xl font-bold text-foreground mb-4\\\">\\n            {title}\\n          </h2>\\n          <p className=\\\"text-muted text-lg max-w-2xl mx-auto\\\">{subtitle}</p>\\n        </div>\\n\\n        <div className=\\\"relative\\\">\\n          {/* Connecting line (desktop) */}\\n          <div className=\\\"hidden lg:block absolute top-16 left-[12.5%] right-[12.5%] h-0.5 bg-border\\\" />\\n\\n          <div className=\\\"grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6\\\">\\n            {steps.map((step, i) => (\\n              <ScrollReveal key={i} delay={i * 100}>\\n                <div className=\\\"relative flex flex-col items-center text-center lg:pt-0\\\">\\n                  {/* Number circle */}\\n                  <div className=\\\"relative z-10 flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-full bg-accent text-primary font-heading text-lg md:text-xl font-bold mb-5\\\">\\n                    {step.number}\\n                  </div>\\n                  <p className=\\\"text-muted text-sm leading-relaxed max-w-xs\\\">\\n                    {step.description}\\n                  </p>\\n                </div>\\n              </ScrollReveal>\\n            ))}\\n          </div>\\n        </div>\\n      </div>\\n    </section>\\n  )\\n}\\n\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 561, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_00_W8VmnWQlcD59qmwHgohN3494"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 3028, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_01_Jyn6HIyG2qgTRYnoBZE24788"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 2191, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_02_DB9KJQVb7eXkK5EMtj509069"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1768, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_03_6ViYTdy1qUdhe4rBs7pk8709"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1938, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_04_x2yo0y6vk5QdJHwGNFbL4995"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1755, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_05_IGdmNoWL9Xi82b0cadhH6342"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 5198, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_06_I0XXNwgPolJsXwC7eznd6458"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 3249, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_07_GkYPtJxL7pRZU8VFKCyI7202"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 865, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_08_qRsxmQ7LzKfZuLXjy3co0535"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 653, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_09_REto411AJTnuSFHBEtNH7341"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1790, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_10_6QyCBrRFQZ98DihvOCNF3695"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1351, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_11_MDcotO3RQGwuXPD9otpm3704"
+    },
+    {
+      "role": "tool",
+      "name": "write_file",
+      "content": "{\"bytes_written\": 1712, \"dirs_created\": true, \"lint\": {\"status\": \"skipped\", \"message\": \"No linter for .tsx files\"}}",
+      "tool_call_id": "call_12_74WWFga2qTYsEsqrcuzH7436"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me verify all 13 files were created and check for the TypeScript build:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_dmtvO1Va3dhYLCvCaDRM9086",
+          "call_id": "call_00_dmtvO1Va3dhYLCvCaDRM9086",
+          "response_item_id": "fc_00_dmtvO1Va3dhYLCvCaDRM9086",
+          "type": "function",
+          "function": {
+            "name": "search_files",
+            "arguments": "{\"path\": \"/root/escribania-paraguay/components\", \"pattern\": \"*.tsx\", \"target\": \"files\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "search_files",
+      "content": "{\"total_count\": 26, \"files\": [\"/root/escribania-paraguay/components/service-process.tsx\", \"/root/escribania-paraguay/components/service-benefits.tsx\", \"/root/escribania-paraguay/components/service-items-list.tsx\", \"/root/escribania-paraguay/components/privacy-content.tsx\", \"/root/escribania-paraguay/components/service-detail-hero.tsx\", \"/root/escribania-paraguay/components/about-intro.tsx\", \"/root/escribania-paraguay/components/team-section.tsx\", \"/root/escribania-paraguay/components/contact-info.tsx\", \"/root/escribania-paraguay/components/faq-categories.tsx\", \"/root/escribania-paraguay/components/contact-form-section.tsx\", \"/root/escribania-paraguay/components/intro-section.tsx\", \"/root/escribania-paraguay/components/values-section.tsx\", \"/root/escribania-paraguay/components/service-categories.tsx\", \"/root/escribania-paraguay/components/whatsapp-float.tsx\", \"/root/escribania-paraguay/components/footer.tsx\", \"/root/escribania-paraguay/components/contact-section.tsx\", \"/root/escribania-paraguay/components/cta-banner.tsx\", \"/root/escribania-paraguay/components/faq-section.tsx\", \"/root/escribania-paraguay/components/trust-section.tsx\", \"/root/escribania-paraguay/components/testimonials-section.tsx\", \"/root/escribania-paraguay/components/stats-section.tsx\", \"/root/escribania-paraguay/components/process-section.tsx\", \"/root/escribania-paraguay/components/services-preview.tsx\", \"/root/escribania-paraguay/components/header.tsx\", \"/root/escribania-paraguay/components/animations/scroll-reveal.tsx\", \"/root/escribania-paraguay/components/hero.tsx\"]}",
+      "tool_call_id": "call_00_dmtvO1Va3dhYLCvCaDRM9086"
+    },
+    {
+      "role": "assistant",
+      "content": "All 13 new files are present. Let me verify each one briefly:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_uUtBekMoqXUHAfpVo68c6204",
+          "call_id": "call_00_uUtBekMoqXUHAfpVo68c6204",
+          "response_item_id": "fc_00_uUtBekMoqXUHAfpVo68c6204",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"cd /root/escribania-paraguay && ls -la components/*.tsx | grep -E \\\"(intro-section|service-categories|about-intro|values-section|team-section|contact-info|contact-form-section|faq-categories|privacy-content|service-detail-hero|service-benefits|service-items-list|service-process)\\\"\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"-rw-r--r-- 1 root root 2191 May  8 22:58 components/about-intro.tsx\\n-rw-r--r-- 1 root root 5198 May  8 22:58 components/contact-form-section.tsx\\n-rw-r--r-- 1 root root 1755 May  8 22:58 components/contact-info.tsx\\n-rw-r--r-- 1 root root 3249 May  8 22:58 components/faq-categories.tsx\\n-rw-r--r-- 1 root root  561 May  8 22:58 components/intro-section.tsx\\n-rw-r--r-- 1 root root  865 May  8 22:58 components/privacy-content.tsx\\n-rw-r--r-- 1 root root 1790 May  8 22:58 components/service-benefits.tsx\\n-rw-r--r-- 1 root root 3028 May  8 22:58 components/service-categories.tsx\\n-rw-r--r-- 1 root root  653 May  8 22:58 components/service-detail-hero.tsx\\n-rw-r--r-- 1 root root 1351 May  8 22:58 components/service-items-list.tsx\\n-rw-r--r-- 1 root root 1712 May  8 22:58 components/service-process.tsx\\n-rw-r--r-- 1 root root 1938 May  8 22:58 components/team-section.tsx\\n-rw-r--r-- 1 root root 1768 May  8 22:58 components/values-section.tsx\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_uUtBekMoqXUHAfpVo68c6204"
+    },
+    {
+      "role": "assistant",
+      "content": "All 13 files created. Here's a summary:\n\n## Summary\n\n**What I did:** Created all 13 missing component files in `/root/escribania-paraguay/components/` following the existing patterns from the codebase.\n\n**Files created (13 total):**\n\n1. **`intro-section.tsx`** — Server component. Centered text block on bg-surface with section-padding-sm.\n\n2. **`service-categories.tsx`** — Server component. 2-column grid of service category cards from the /servicios page data. Each card shows icon, title, description, features list, and links to `/servicios/{id}`. Uses the same icon mapping as services-preview for: scroll-text, file-signature, file-text, stamp, landmark, building.\n\n3. **`about-intro.tsx`** — Server component. Title + body text at top, then two side-by-side cards (Vision with Eye icon, Mission with Target icon).\n\n4. **`values-section.tsx`** — Server component. 4-column grid of values cards on bg-background. Icon mapping: shield-check→ShieldCheck, gavel→Gavel, users→Users, clock→Clock.\n\n5. **`team-section.tsx`** — Server component. 3-column grid of team member cards with placeholder circle (User icon), name, role, description, education.\n\n6. **`contact-info.tsx`** — Server component. 4-column grid of contact info cards with MapPin, Phone, Mail, Clock icons.\n\n7. **`contact-form-section.tsx`** — Client component (`'use client'`). Two-column layout (text left, form right). Renders form fields by type (text, email, tel, select, textarea). On submit shows success message \"Gracias por tu consulta. Te responderemos a la brevedad.\" Submit button with accent color.\n\n8. **`faq-categories.tsx`** — Client component (`'use client'`). Multi-category FAQ with accordion per category using useState for expand/collapse. Same accordion pattern as faq-section.tsx but organized by category title headers.\n\n9. **`privacy-content.tsx`** — Server component. Simple list of sections with title and text on bg-surface.\n\n10. **`service-detail-hero.tsx`** — Server component. Dark hero variant (bg-primary, white text) with heading + subheading, no CTA buttons. Matches the hero dark variant style.\n\n11. **`service-benefits.tsx`** — Server component. 4-column benefits grid on bg-surface, same structure as trust-section but with different background.\n\n12. **`service-items-list.tsx`** — Server component. List of service features with Check icons, 2-column grid on desktop, 1 on mobile, on bg-surface-alt.\n\n13. **`service-process.tsx`** — Server component. Process steps with number circles and descriptions (no step titles), same visual pattern as process-section.tsx. Connecting line on desktop.\n\n**Patterns followed:**\n- All use `@/components/animations/scroll-reveal` for reveal animations\n- All use `container-page`, `section-padding`, `section-padding-sm` CSS classes\n- All use `font-heading`, `font-accent`, `text-accent`, `text-muted`, `text-foreground` utility classes\n- Icon mapping pattern consistent with trust-section.tsx and services-preview.tsx\n- CSS variable references match globals.css\n- Proper TypeScript interfaces defined inline\n- Lucide-react for all icons\n- bg-[var(--color-*)] pattern where Tailwind v4 class syntax is needed (service-detail-hero uses `bg-[var(--color-primary)]`)",
+      "reasoning": null,
+      "finish_reason": "stop"
+    }
+  ]
+}

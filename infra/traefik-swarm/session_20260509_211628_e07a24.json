@@ -1,0 +1,691 @@
+{
+  "session_id": "20260509_211628_e07a24",
+  "model": "deepseek-chat",
+  "base_url": "https://api.deepseek.com/v1",
+  "platform": "whatsapp",
+  "session_start": "[REDACTED_PHONE]T21:16:28.050778",
+  "last_updated": "[REDACTED_PHONE]T21:31:27.139707",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nIf the user asks about configuring, setting up, or using Hermes Agent itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') before answering. Docs: https://hermes-agent.nousresearch.com/docs\n\nConversation started: Saturday, May 09, 2026 09:16 PM\nModel: deepseek-chat\nProvider: deepseek\n\nYou are on a text messaging communication platform, WhatsApp. Please do not use markdown as it does not render. You can send media files natively: to deliver a file to the user, include MEDIA:/absolute/path/to/file in your response. The file will be sent as a native WhatsApp attachment — images (.jpg, .png, .webp) appear as photos, videos (.mp4, .mov) play inline, and other files arrive as downloadable documents. You can also include image URLs in markdown format ![alt](url) and they will be sent as photos.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 42,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Research the existing WhatsApp infrastructure on the VPS to determine if we can deploy an order-confirmation chatbot for Tsuki restaurant:\n1. SSH into the VPS (it's local — just run terminal commands) \n2. Check: docker ps | grep -i whatsapp, docker service ls | grep -i whatsapp, ls ~/evolution* 2>/dev/null\n3. Check if any evolution-api containers exist\n4. Check if the WhatsApp bridge from Ai-Whisperers is active\n5. Check if there's a webhook receiver we can reuse\n6. Propose a simple solution:\n   - If Evolution API exists: use it to set up incoming message webhook\n   - If not: deploy a minimal express server as a Docker service that receives the order webhook from the website and sends auto-replies via Evolution API's REST endpoint\n   - OR: For now, since the order already opens WhatsApp with a pre-formatted message, the simplest approach is to NOT build a full chatbot yet but instead document the plan and create the evolution-api configuration\n\nThe key outcome: Determine if we CAN deploy a chatbot right now, or if we need to deploy Evolution API first. If Evolution API is not installed, install it using the existing skills (check available skills for evolution-whatsapp-ai-agent). Return the full findings and a concrete next-steps plan."
+    },
+    {
+      "role": "assistant",
+      "content": "Let me research the existing WhatsApp infrastructure on the VPS.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_p68SRdibZhoL81Jm2ycH4759",
+          "call_id": "call_00_p68SRdibZhoL81Jm2ycH4759",
+          "response_item_id": "fc_00_p68SRdibZhoL81Jm2ycH4759",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker ps | grep -i whatsapp\"}"
+          }
+        },
+        {
+          "id": "call_01_sOZCBZ3jUUyUcao3DRYP1308",
+          "call_id": "call_01_sOZCBZ3jUUyUcao3DRYP1308",
+          "response_item_id": "fc_01_sOZCBZ3jUUyUcao3DRYP1308",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service ls | grep -i whatsapp\"}"
+          }
+        },
+        {
+          "id": "call_02_MmKtRWTCOVYRnftyb8uF2502",
+          "call_id": "call_02_MmKtRWTCOVYRnftyb8uF2502",
+          "response_item_id": "fc_02_MmKtRWTCOVYRnftyb8uF2502",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"ls ~/evolution* 2>/dev/null\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"aa1362b6a104   whatsapp-ai-agent:v3.0.1                     \\\"uvicorn app.main:ap…\\\"   3 days ago           Up 3 days                              8000/tcp                                                                                                                    whatsapp-ai-stack_whatsapp-ai.1.dy3c9och9jpavscmkl7nxgsgm\\n5d95d67fd7aa   whatsapp-connect:v3                          \\\"docker-entrypoint.s…\\\"   3 days ago           Up 3 days                              8990/tcp                                                                                                                    wa-connect_connect.1.3h5dxam7i8ua1vrzmlonegtl2\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_p68SRdibZhoL81Jm2ycH4759"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"srewfhgh8sp2   wa-connect_connect              replicated   1/1        whatsapp-connect:v3                          *:30003->8990/tcp\\n77h8wc2t34af   whatsapp-ai-stack_whatsapp-ai   replicated   1/1        whatsapp-ai-agent:v3.0.1\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_sOZCBZ3jUUyUcao3DRYP1308"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"evolution-docker-compose.yml\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_02_MmKtRWTCOVYRnftyb8uF2502"
+    },
+    {
+      "role": "assistant",
+      "content": "Excellent! We have active WhatsApp infrastructure. Let me dig deeper into both services.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_hPmn2EnCblOpqsPkvrBX3364",
+          "call_id": "call_00_hPmn2EnCblOpqsPkvrBX3364",
+          "response_item_id": "fc_00_hPmn2EnCblOpqsPkvrBX3364",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service inspect wa-connect_connect --pretty\"}"
+          }
+        },
+        {
+          "id": "call_01_ZqLN6Qpwe2hr2U8JZOjW9060",
+          "call_id": "call_01_ZqLN6Qpwe2hr2U8JZOjW9060",
+          "response_item_id": "fc_01_ZqLN6Qpwe2hr2U8JZOjW9060",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service inspect whatsapp-ai-stack_whatsapp-ai --pretty\"}"
+          }
+        },
+        {
+          "id": "call_02_ByahsaxXMvIqxF8QMCtI6174",
+          "call_id": "call_02_ByahsaxXMvIqxF8QMCtI6174",
+          "response_item_id": "fc_02_ByahsaxXMvIqxF8QMCtI6174",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker ps --format \\\"table {{.Names}}\\\\t{{.Image}}\\\\t{{.Status}}\\\\t{{.Ports}}\\\" 2>/dev/null | grep -i whatsapp\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"ID:\\t\\tsrewfhgh8sp2q3zrrw4itcymz\\nName:\\t\\twa-connect_connect\\nLabels:\\n com.docker.stack.image=whatsapp-connect:v1\\n com.docker.stack.namespace=wa-connect\\n traefik.enable=true\\n traefik.http.routers.wa-connect.entrypoints=websecure\\n traefik.http.routers.wa-connect.rule=Host(`whatsappconnect.paragu-ai.com`)\\n traefik.http.routers.wa-connect.tls.certresolver=letsencryptresolver\\n traefik.http.services.wa-connect.loadbalancer.server.port=8990\\n traefik.swarm.network=agent-net\\nService Mode:\\tReplicated\\n Replicas:\\t1\\nUpdateStatus:\\n State:\\t\\tcompleted\\n Started:\\t3 days ago\\n Completed:\\t3 days ago\\n Message:\\tupdate completed\\nPlacement:\\nUpdateConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Update order:      stop-first\\nRollbackConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Rollback order:    stop-first\\nContainerSpec:\\n Image:\\t\\twhatsapp-connect:v3\\n Env:\\t\\tAPI_BASE=https://whatsapp-ai.sunstein.cloud EVOLUTION_API_KEY=a53c00...d0e1 \\nResources:\\nNetworks: wpq7plft6kreljzgrz9caq5xn \\nEndpoint Mode:\\tvip\\nPorts:\\n PublishedPort = 30003\\n  Protocol = tcp\\n  TargetPort = 8990\\n  PublishMode = ingress\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_hPmn2EnCblOpqsPkvrBX3364"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"ID:\\t\\t77h8wc2t34af6z0omgvm6vtnw\\nName:\\t\\twhatsapp-ai-stack_whatsapp-ai\\nLabels:\\n com.docker.stack.image=whatsapp-ai-agent:v3.0.1\\n com.docker.stack.namespace=whatsapp-ai-stack\\n traefik.enable=true\\n traefik.http.routers.whatsapp-ai.entrypoints=websecure\\n traefik.http.routers.whatsapp-ai.rule=Host(`whatsapp-ai.sunstein.cloud`)\\n traefik.http.routers.whatsapp-ai.tls.certresolver=letsencryptresolver\\n traefik.http.services.whatsapp-ai.loadbalancer.server.port=8000\\nService Mode:\\tReplicated\\n Replicas:\\t1\\nUpdateStatus:\\n State:\\t\\tcompleted\\n Started:\\t4 days ago\\n Completed:\\t4 days ago\\n Message:\\tupdate completed\\nPlacement:\\n Constraints:\\t[node.role == manager]\\nUpdateConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Update order:      stop-first\\nRollbackConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Rollback order:    stop-first\\nContainerSpec:\\n Image:\\t\\twhatsapp-ai-agent:v3.0.1\\n Env:\\t\\tDEEPSEEK_API_KEY=*** DEEPSEEK_MODEL=deepseek-chat EVOLUTION_API_KEY=a53c00...d0e1 EVOLUTION_API_URL=https://evolution.sunstein.cloud HOST=0.0.0.0 LITELLM_KEY=sk-her...2026 LITELLM_URL=http://litellm:4000/v1 MAX_HISTORY=50 PG_DSN=[REDACTED_DB_URL] PORT=8000 \\nResources:\\nNetworks: wpq7plft6kreljzgrz9caq5xn \\nEndpoint Mode:\\tvip\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_ZqLN6Qpwe2hr2U8JZOjW9060"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"whatsapp-ai-stack_whatsapp-ai.1.dy3c9och9jpavscmkl7nxgsgm           whatsapp-ai-agent:v3.0.1                     Up 3 days                              8000/tcp\\nwa-connect_connect.1.3h5dxam7i8ua1vrzmlonegtl2                      whatsapp-connect:v3                          Up 3 days                              8990/tcp\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_02_ByahsaxXMvIqxF8QMCtI6174"
+    },
+    {
+      "role": "assistant",
+      "content": "Now let me check for Evolution API containers and the evolution-docker-compose file, plus check what the existing services expose.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_IxUkHMoJmqwYbxwt0CWV3554",
+          "call_id": "call_00_IxUkHMoJmqwYbxwt0CWV3554",
+          "response_item_id": "fc_00_IxUkHMoJmqwYbxwt0CWV3554",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker ps | grep -i evolution\"}"
+          }
+        },
+        {
+          "id": "call_01_gSaRLZigCAf7hSd5ixuG7357",
+          "call_id": "call_01_gSaRLZigCAf7hSd5ixuG7357",
+          "response_item_id": "fc_01_gSaRLZigCAf7hSd5ixuG7357",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service ls | grep -i evolution\"}"
+          }
+        },
+        {
+          "id": "call_02_FDKSIFHAQRPzseI0oRRS4567",
+          "call_id": "call_02_FDKSIFHAQRPzseI0oRRS4567",
+          "response_item_id": "fc_02_FDKSIFHAQRPzseI0oRRS4567",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"cat ~/evolution-docker-compose.yml 2>/dev/null | head -60\"}"
+          }
+        },
+        {
+          "id": "call_03_ZP1x9AgpUpSXRMeOpBEI5367",
+          "call_id": "call_03_ZP1x9AgpUpSXRMeOpBEI5367",
+          "response_item_id": "fc_03_ZP1x9AgpUpSXRMeOpBEI5367",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker network ls | grep -i agent-net\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"ec51cad39357   evoapicloud/evolution-api:latest             \\\"/bin/bash -c '. ./D…\\\"   31 hours ago         Up 31 hours                            0.0.0.0:3001->8080/tcp, [::]:3001->8080/tcp                                                                                 evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh\\nb8230bf5946e   redis:latest                                 \\\"docker-entrypoint.s…\\\"   3 days ago           Up 3 days                              6379/tcp                                                                                                                    evolution_evolution_redis.1.y9w5qwvsq23xgcs8da8rs2e3a\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_IxUkHMoJmqwYbxwt0CWV3554"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"rg1g24qqrmil   evolution_evolution_api         replicated   1/1        evoapicloud/evolution-api:latest             \\nbrudt6rorcix   evolution_evolution_redis       replicated   1/1        redis:latest\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_gSaRLZigCAf7hSd5ixuG7357"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_02_FDKSIFHAQRPzseI0oRRS4567"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"wpq7plft6kre   agent-net          overlay   swarm\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_03_ZP1x9AgpUpSXRMeOpBEI5367"
+    },
+    {
+      "role": "assistant",
+      "content": "Evolution API is running! Let me check the full service details and what endpoints are exposed.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_qmVcn3Ac2IM6elFsXEd89016",
+          "call_id": "call_00_qmVcn3Ac2IM6elFsXEd89016",
+          "response_item_id": "fc_00_qmVcn3Ac2IM6elFsXEd89016",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service inspect evolution_evolution_api --pretty\"}"
+          }
+        },
+        {
+          "id": "call_01_O3rnMT2BtcHaUQi7btZS5836",
+          "call_id": "call_01_O3rnMT2BtcHaUQi7btZS5836",
+          "response_item_id": "fc_01_O3rnMT2BtcHaUQi7btZS5836",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service inspect evolution_evolution_redis --pretty\"}"
+          }
+        },
+        {
+          "id": "call_02_tpvRNLIwggP28v93rpol3002",
+          "call_id": "call_02_tpvRNLIwggP28v93rpol3002",
+          "response_item_id": "fc_02_tpvRNLIwggP28v93rpol3002",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"curl -s http://localhost:3001/ | head -50\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"ID:\\t\\trg1g24qqrmilmbyggbfcvf4j5\\nName:\\t\\tevolution_evolution_api\\nLabels:\\n com.docker.stack.image=evoapicloud/evolution-api:latest\\n com.docker.stack.namespace=evolution\\n traefik.enable=true\\n traefik.http.routers.evolution.entrypoints=websecure\\n traefik.http.routers.evolution.priority=1\\n traefik.http.routers.evolution.rule=Host(`evolution.sunstein.cloud`)\\n traefik.http.routers.evolution.service=evolution\\n traefik.http.routers.evolution.tls.certresolver=letsencryptresolver\\n traefik.http.services.evolution.loadbalancer.server.port=8080\\nService Mode:\\tReplicated\\n Replicas:\\t1\\nUpdateStatus:\\n State:\\t\\tcompleted\\n Started:\\t31 hours ago\\n Completed:\\t31 hours ago\\n Message:\\tupdate completed\\nPlacement:\\n Constraints:\\t[node.role == manager]\\nUpdateConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Update order:      stop-first\\nRollbackConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Rollback order:    stop-first\\nContainerSpec:\\n Image:\\t\\tevoapicloud/evolution-api:latest@sha256:[REDACTED_TOKEN]1\\n Env:\\t\\tAUTHENTICATION_API_KEY=a53c00...d0e1 [REDACTED_TOKEN]*** CACHE_LOCAL_ENABLED=false CACHE_REDIS_ENABLED=true CACHE_REDIS_PREFIX_KEY=evolution CACHE_REDIS_SAVE_INSTANCES=false CACHE_REDIS_URI=redis://evolution_redis:***@postgres:5432/evolution DATABASE_ENABLED=true DATABASE_PROVIDER=postgresql DATABASE_SAVE_DATA_CHATS=true DATABASE_SAVE_DATA_CONTACTS=true DATABASE_SAVE_DATA_HISTORIC=true DATABASE_SAVE_DATA_INSTANCE=true DATABASE_SAVE_DATA_LABELS=true DATABASE_SAVE_DATA_NEW_MESSAGE=true DATABASE_SAVE_MESSAGE_UPDATE=true DEL_INSTANCE=false DIFY_ENABLED=false EVOAI_ENABLED=false LANGUAGE=es N8N_ENABLED=false OPENAI_ENABLED=false PROVIDER_ENABLED=false QRCODE_LIMIT=1902 RABBITMQ_ENABLED=false S3_ENABLED=false SERVER_URL=https://evolution.sunstein.cloud SQS_ENABLED=false TELEMETRY=false TYPEBOT_ENABLED=false WEBHOOK_GLOBAL_ENABLED=false WEBSOCKET_ENABLED=false WEBSOCKET_GLOBAL_EVENTS=false \\nMounts:\\n Target:\\t/evolution/instances\\n  Source:\\tevolution_instances\\n  ReadOnly:\\tfalse\\n  Type:\\t\\tvolume\\nResources:\\nNetworks: wpq7plft6kreljzgrz9caq5xn \\nEndpoint Mode:\\tvip\\nPorts:\\n PublishedPort = 3001\\n  Protocol = tcp\\n  TargetPort = 8080\\n  PublishMode = host\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_qmVcn3Ac2IM6elFsXEd89016"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"ID:\\t\\tbrudt6rorcixs5hcy3qg7o8ht\\nName:\\t\\tevolution_evolution_redis\\nLabels:\\n com.docker.stack.image=redis:latest\\n com.docker.stack.namespace=evolution\\nService Mode:\\tReplicated\\n Replicas:\\t1\\nPlacement:\\n Constraints:\\t[node.role == manager]\\nUpdateConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Update order:      stop-first\\nRollbackConfig:\\n Parallelism:\\t1\\n On failure:\\tpause\\n Monitoring Period: 5s\\n Max failure ratio: 0\\n Rollback order:    stop-first\\nContainerSpec:\\n Image:\\t\\tredis:latest@sha256:[REDACTED_TOKEN]8\\n Args:\\t\\tredis-server --appendonly yes --port 6379 \\nMounts:\\n Target:\\t/data\\n  Source:\\tevolution_redis\\n  ReadOnly:\\tfalse\\n  Type:\\t\\tvolume\\nResources:\\n Limits:\\n  CPU:\\t\\t1\\n  Memory:\\t1GiB\\nNetworks: wpq7plft6kreljzgrz9caq5xn \\nEndpoint Mode:\\tvip\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_O3rnMT2BtcHaUQi7btZS5836"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"{\\\"status\\\":200,\\\"message\\\":\\\"Welcome to the Evolution API, it is working!\\\",\\\"version\\\":\\\"2.3.7\\\",\\\"clientName\\\":\\\"evolution\\\",\\\"manager\\\":\\\"http://localhost:3001/manager\\\",\\\"documentation\\\":\\\"https://doc.evolution-api.com\\\",\\\"whatsappWebVersion\\\":\\\"2.3000.[REDACTED_PHONE]\\\"}\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_02_tpvRNLIwggP28v93rpol3002"
+    },
+    {
+      "role": "assistant",
+      "content": "Evolution API v2.3.7 is running and healthy. Let me check for existing instances and webhooks.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_GPWXObi8yg22hXAPwlWM0181",
+          "call_id": "call_00_GPWXObi8yg22hXAPwlWM0181",
+          "response_item_id": "fc_00_GPWXObi8yg22hXAPwlWM0181",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"curl -s -H \\\"apiKey: a53c00...d0e1\\\" http://localhost:3001/instance/fetchInstances | python3 -m json.tool 2>/dev/null | head -80\"}"
+          }
+        },
+        {
+          "id": "call_01_euODOWkzFuyfszlsHCrH6258",
+          "call_id": "call_01_euODOWkzFuyfszlsHCrH6258",
+          "response_item_id": "fc_01_euODOWkzFuyfszlsHCrH6258",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"curl -s -H \\\"apiKey: a53c00...d0e1\\\" http://localhost:3001/instance/fetchInstances 2>/dev/null | python3 -c \\\"import sys,json; data=json.load(sys.stdin); print(json.dumps(data, indent=2))\\\" 2>/dev/null | head -100\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"{\\n    \\\"status\\\": 401,\\n    \\\"error\\\": \\\"Unauthorized\\\",\\n    \\\"response\\\": {\\n        \\\"message\\\": \\\"Unauthorized\\\"\\n    }\\n}\", \"exit_code\": 0, \"error\": null, \"approval\": \"Command required approval (Security scan — [MEDIUM] Schemeless URL in sink context: URL without explicit scheme passed to a command that downloads/executes content; [HIGH] Pipe to interpreter: curl | python3: Command pipes output from 'curl' directly to interpreter 'python3'. Downloaded content will be executed without inspection.\\n  Safer: tirith run http://localhost:3001/instance/fetchInstances  — or: vet http://localhost:3001/instance/fetchInstances  (https://getvet.sh)) and was approved by the user.\"}",
+      "tool_call_id": "call_00_GPWXObi8yg22hXAPwlWM0181"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"\", \"exit_code\": -1, \"error\": \"BLOCKED: Command timed out. Do NOT retry this command.\", \"status\": \"blocked\"}",
+      "tool_call_id": "call_01_euODOWkzFuyfszlsHCrH6258"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me use the correct API key and endpoint.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_2VK3NtXd3mclPSIpHHTB5638",
+          "call_id": "call_00_2VK3NtXd3mclPSIpHHTB5638",
+          "response_item_id": "fc_00_2VK3NtXd3mclPSIpHHTB5638",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker inspect evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep -i AUTHENTICATION_API_KEY\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"AUTHENTICATION_API_KEY=a53c00...d0e1\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_2VK3NtXd3mclPSIpHHTB5638"
+    },
+    {
+      "role": "assistant",
+      "content": "The API key is masked in output. Let me check the actual key from environment and also examine the whatsapp-ai-agent source code to understand the existing webhook setup.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Xl4b2hClVh4q6vEZl29z3435",
+          "call_id": "call_00_Xl4b2hClVh4q6vEZl29z3435",
+          "response_item_id": "fc_00_Xl4b2hClVh4q6vEZl29z3435",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker exec evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh env | grep -i AUTH 2>/dev/null\"}"
+          }
+        },
+        {
+          "id": "call_01_DkRuFAwl1ZHUO3hVvDu29780",
+          "call_id": "call_01_DkRuFAwl1ZHUO3hVvDu29780",
+          "response_item_id": "fc_01_DkRuFAwl1ZHUO3hVvDu29780",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check existing instances via the container directly\\ndocker exec evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh curl -s localhost:8080/instance/fetchInstances 2>/dev/null | head -100\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"AUTHENTICATION_API_KEY=a53c00...d0e1\\[REDACTED_TOKEN]***\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_Xl4b2hClVh4q6vEZl29z3435"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"OCI runtime exec failed: exec failed: unable to start container process: exec: \\\"curl\\\": executable file not found in $PATH\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_DkRuFAwl1ZHUO3hVvDu29780"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_PApQwMLhMxBMmUld42QR8767",
+          "call_id": "call_00_PApQwMLhMxBMmUld42QR8767",
+          "response_item_id": "fc_00_PApQwMLhMxBMmUld42QR8767",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# The API key is obfuscated in output. Let me check the postgres database for existing instances\\ndocker exec evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh wget -q -O- --header=\\\"apiKey: a53c00...d0e1\\\" http://localhost:8080/instance/fetchInstances 2>/dev/null | head -200\"}"
+          }
+        },
+        {
+          "id": "call_01_VBCSvpXgXah4B3m6d03x1344",
+          "call_id": "call_01_VBCSvpXgXah4B3m6d03x1344",
+          "response_item_id": "fc_01_VBCSvpXgXah4B3m6d03x1344",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Try with actual key - let me check if evolution stack has the compose file\\nls /root/evolution* 2>/dev/null; ls /root/docker-compose*evolution* 2>/dev/null; find /root -name \\\"*evolution*\\\" -type f 2>/dev/null | head -20\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_PApQwMLhMxBMmUld42QR8767"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"evolution-docker-compose.yml\\n/root/solstein/.antigravity/rules/scripts/script-evolution-rule.mdc\\n/root/text_best_open_source_WhatsApp_API_v2.4_evolution_api_20260506_001645.json\\n/root/paragu-ai-builder/web/lib/integrations/whatsapp/evolution.ts\\n/root/evolution/evolution-docker-compose.yml\\n/root/backups/evolution-[REDACTED_PHONE].sql.gz\\n/root/research/configs/evolution.yaml\\n/root/research/techniques/evolution-api-ai-whatsapp-research.md\\n/root/.hermes/skills/devops/evolution-whatsapp-ai-agent/references/evolution-manager-ui.md\\n/root/.hermes/skills/devops/evolution-whatsapp-ai-agent/references/evolution-upgrade-research-2026-05.md\\n/root/.hermes/skills/devops/evolution-whatsapp-ai-agent/references/evolution-postgres-schema.md\\n/root/.hermes/skills/devops/evolution-whatsapp-ai-agent/references/evolution-pairing-code-research.md\\n/root/.hermes/plugins/plur/packages/core/test/sp2-history-evolution.test.ts\\n/root/.hermes/plugins/plur/packages/core/test/sp2-failure-evolution.test.ts\\n/root/.hermes/plugins/SkillClaw/assets/skill_evolution.svg\\n/root/.hermes/plugins/autocontext/ts/tests/schema-evolution-codegen-template.test.ts\\n/root/.hermes/plugins/autocontext/ts/src/scenarios/schema-evolution-designer.ts\\n/root/.hermes/plugins/autocontext/ts/src/scenarios/schema-evolution-spec.ts\\n/root/.hermes/plugins/autocontext/ts/src/scenarios/schema-evolution-creator.ts\\n/root/.hermes/plugins/autocontext/ts/src/scenarios/codegen/templates/schema-evolution-template.ts\\n/root/.hermes/plugins/autocontext/ts/src/scenarios/codegen/schema-evolution-codegen.ts\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_VBCSvpXgXah4B3m6d03x1344"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_oAIfEa26k4DcXfNbFHn61227",
+          "call_id": "call_00_oAIfEa26k4DcXfNbFHn61227",
+          "response_item_id": "fc_00_oAIfEa26k4DcXfNbFHn61227",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check the evolution stack config\\ncat /root/evolution/evolution-docker-compose.yml\"}"
+          }
+        },
+        {
+          "id": "call_01_FnNZUs3mk3mdGezTGOXD5512",
+          "call_id": "call_01_FnNZUs3mk3mdGezTGOXD5512",
+          "response_item_id": "fc_01_FnNZUs3mk3mdGezTGOXD5512",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check the integration file for evolution\\ncat /root/paragu-ai-builder/web/lib/integrations/whatsapp/evolution.ts\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"version: \\\"3.7\\\"\\n\\nservices:\\n\\n  evolution_api:\\n    image: evoapicloud/evolution-api:latest\\n    hostname: evolution_api\\n\\n    volumes:\\n      - evolution_instances:/evolution/instances\\n\\n    networks:\\n      - network_overlay\\n\\n    environment:\\n      - SERVER_URL=https://evolution.sunstein.cloud\\n      - AUTHENTICATION_API_KEY=a53c00...d0e1\\n      - [REDACTED_TOKEN]***\\n      - DEL_INSTANCE=false\\n      - QRCODE_LIMIT=1902\\n      - LANGUAGE=es\\n\\n      - CONFIG_SESSION_PHONE_CLIENT=Hermes\\n      - CONFIG_SESSION_PHONE_NAME=Chrome\\n\\n      - DATABASE_ENABLED=true\\n      - DATABASE_PROVIDER=postgresql\\n      - DATABASE_CONNECTION_URI=[REDACTED_DB_URL]      - DATABASE_CONNECTION_CLIENT_NAME=evolution\\n      - DATABASE_SAVE_DATA_INSTANCE=true\\n      - DATABASE_SAVE_DATA_NEW_MESSAGE=true\\n      - DATABASE_SAVE_MESSAGE_UPDATE=true\\n      - DATABASE_SAVE_DATA_CONTACTS=true\\n      - DATABASE_SAVE_DATA_CHATS=true\\n      - DATABASE_SAVE_DATA_LABELS=true\\n      - DATABASE_SAVE_DATA_HISTORIC=true\\n\\n      - N8N_ENABLED=false\\n      - EVOAI_ENABLED=false\\n      - OPENAI_ENABLED=false\\n      - DIFY_ENABLED=false\\n      - TYPEBOT_ENABLED=false\\n\\n      - CHATWOOT_ENABLED=false\\n\\n      - CACHE_REDIS_ENABLED=true\\n      - CACHE_REDIS_URI=redis://evolution_redis:6379/1\\n      - CACHE_REDIS_PREFIX_KEY=evolution\\n      - CACHE_REDIS_SAVE_INSTANCES=false\\n      - CACHE_LOCAL_ENABLED=false\\n\\n      - S3_ENABLED=false\\n\\n      - TELEMETRY=false\\n\\n      - WEBSOCKET_ENABLED=false\\n      - WEBSOCKET_GLOBAL_EVENTS=false\\n\\n      - RABBITMQ_ENABLED=false\\n\\n      - WEBHOOK_GLOBAL_ENABLED=false\\n\\n      - SQS_ENABLED=false\\n\\n      - PROVIDER_ENABLED=false\\n\\n    deploy:\\n      mode: replicated\\n      replicas: 1\\n      placement:\\n        constraints:\\n          - node.role == manager\\n      labels:\\n        - traefik.enable=true\\n        - traefik.http.routers.evolution.rule=Host(`evolution.sunstein.cloud`)\\n        - traefik.http.routers.evolution.entrypoints=websecure\\n        - traefik.http.routers.evolution.priority=1\\n        - traefik.http.routers.evolution.tls.certresolver=letsencryptresolver\\n        - traefik.http.routers.evolution.service=evolution\\n        - traefik.http.services.evolution.loadbalancer.server.port=8080\\n\\n  evolution_redis:\\n    image: redis:latest\\n    hostname: evolution_redis\\n    command: [\\\"redis-server\\\", \\\"--appendonly\\\", \\\"yes\\\", \\\"--port\\\", \\\"6379\\\"]\\n\\n    volumes:\\n      - evolution_redis:/data\\n\\n    networks:\\n      - network_overlay\\n\\n    deploy:\\n      placement:\\n        constraints:\\n          - node.role == manager\\n      resources:\\n        limits:\\n          cpus: \\\"1\\\"\\n          memory: 1024M\\n\\nvolumes:\\n  evolution_instances:\\n    external: true\\n    name: evolution_instances\\n  evolution_redis:\\n    external: true\\n    name: evolution_redis\\n\\nnetworks:\\n  network_overlay:\\n    external: true\\n    name: agent-net\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_oAIfEa26k4DcXfNbFHn61227"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"/**\\n * Evolution API client — WhatsApp Business API integration.\\n *\\n * Evolution runs on the VPS at evolution.sunstein.cloud.\\n * Manages WhatsApp instances, sends messages, syncs catalogs.\\n */\\n\\nconst EVOLUTION_URL = process.env.EVOLUTION_URL || 'https://evolution.sunstein.cloud'\\nconst EVOLUTION_API_KEY=proces..._KEY || 'a53c00ff3726d2ced6bbfeba8d1a1e90'\\n\\ninterface EvolutionResponse<T = unknown> {\\n  status: number\\n  data?: T\\n  error?: string\\n}\\n\\nasync function api<T = unknown>(\\n  method: string,\\n  path: string,\\n  body?: Record<string, unknown>,\\n): Promise<EvolutionResponse<T>> {\\n  try {\\n    const res = await fetch(`${EVOLUTION_URL}${path}`, {\\n      method,\\n      headers: {\\n        'Content-Type': 'application/json',\\n        'apiKey': EVOLUTION_API_KEY,\\n      },\\n      body: body ? JSON.stringify(body) : undefined,\\n    })\\n    const data = await res.json()\\n    return { status: res.status, data }\\n  } catch (e) {\\n    return { status: 0, error: String(e) }\\n  }\\n}\\n\\n/**\\n * Create a new WhatsApp instance for a business.\\n * Returns the QR code that the business owner needs to scan.\\n */\\nexport async function createInstance(instanceName: string): Promise<EvolutionResponse<{ qrcode: string; instance: string }>> {\\n  return api('POST', '/instance/create', {\\n    instanceName,\\n    qrcode: true,\\n    integration: 'WHATSAPP-BAI',\\n    reject_call: false,\\n    msg_call: false,\\n    groups_ignore: true,\\n    always_online: false,\\n    read_messages: true,\\n    read_status: true,\\n    sync_full_history: false,\\n  })\\n}\\n\\n/**\\n * Get the current QR code for an instance (for reconnection).\\n */\\nexport async function getQRCode(instanceName: string): Promise<EvolutionResponse<{ qrcode: string }>> {\\n  return api('GET', `/instance/connect/${instanceName}`)\\n}\\n\\n/**\\n * Check instance connection state.\\n */\\nexport async function getInstanceState(instanceName: string): Promise<EvolutionResponse<{ state: string }>> {\\n  return api('GET', `/instance/connectionState/${instanceName}`)\\n}\\n\\n/**\\n * Send a text message via WhatsApp.\\n */\\nexport async function sendText(\\n  instanceName: string,\\n  to: string,\\n  text: string,\\n): Promise<EvolutionResponse<unknown>> {\\n  return api('POST', `/message/sendText/${instanceName}`, {\\n    number: to.replace(/\\\\D/g, ''),\\n    text,\\n    delay: 1200,\\n  })\\n}\\n\\n/**\\n * Send a template message (for booking confirmations, reminders).\\n */\\nexport async function sendBookingConfirmation(\\n  instanceName: string,\\n  to: string,\\n  customerName: string,\\n  serviceName: string,\\n  date: string,\\n  time: string,\\n): Promise<EvolutionResponse<unknown>> {\\n  const text = `🆕 *Nueva reserva confirmada* 🎉\\n\\n👤 Cliente: ${customerName}\\n💇 Servicio: ${serviceName}\\n📅 Fecha: ${date}\\n⏰ Hora: ${time}\\n\\nGracias por elegirnos! Te esperamos.`\\n\\n  return sendText(instanceName, to, text)\\n}\\n\\n/**\\n * Send booking reminder (24h before).\\n */\\nexport async function sendBookingReminder(\\n  instanceName: string,\\n  to: string,\\n  customerName: string,\\n  date: string,\\n  time: string,\\n): Promise<EvolutionResponse<unknown>> {\\n  const text = `⏰ *Recordatorio de cita*\\n\\nHola ${customerName}! Te recordamos que tenes una cita mañana:\\n\\n📅 ${date}\\n⏰ ${time}\\n\\nSi necesitas cancelar o reprogramar, avisanos con anticipacion.\\n\\nGracias!`\\n\\n  return sendText(instanceName, to, text)\\n}\\n\\n/**\\n * Notify business owner of new booking.\\n */\\nexport async function notifyNewBooking(\\n  instanceName: string,\\n  ownerPhone: string,\\n  booking: { customerName: string; customerPhone: string; service: string; date: string; time: string },\\n): Promise<EvolutionResponse<unknown>> {\\n  const text = `🆕 *Nueva reserva* en tu negocio!\\n\\n👤 Cliente: ${booking.customerName}\\n📞 Tel: ${booking.customerPhone}\\n💇 Servicio: ${booking.service}\\n📅 Fecha: ${booking.date}\\n⏰ Hora: ${booking.time}\\n\\nGestiona desde: https://paragu-ai.com/admin/bookings`\\n\\n  return sendText(instanceName, ownerPhone.replace(/\\\\D/g, ''), text)\\n}\\n\\n/**\\n * Sync business services as a WhatsApp catalog.\\n * Creates product messages that appear as catalog entries.\\n */\\nexport async function syncCatalog(\\n  instanceName: string,\\n  services: Array<{ name: string; description: string; price: string; imageUrl?: string }>,\\n): Promise<EvolutionResponse<unknown>> {\\n  const products = services.map(s => ({\\n    name: s.name,\\n    description: s.description,\\n    price: s.price,\\n    imageUrl: s.imageUrl || '',\\n  }))\\n\\n  return api('POST', `/catalog/create/${instanceName}`, {\\n    products,\\n    currency: 'PYG',\\n  })\\n}\\n\\n/**\\n * Delete an instance (when a client unsubscribes).\\n */\\nexport async function deleteInstance(instanceName: string): Promise<EvolutionResponse<unknown>> {\\n  return api('DELETE', `/instance/delete/${instanceName}`)\\n}\\n\\n/**\\n * Set up webhook for incoming messages.\\n */\\nexport async function setWebhook(\\n  instanceName: string,\\n  webhookUrl: string,\\n): Promise<EvolutionResponse<unknown>> {\\n  return api('POST', `/instance/setWebhook/${instanceName}`, {\\n    webhook: {\\n      url: webhookUrl,\\n      events: ['MESSAGE', 'SEND_MESSAGE'],\\n    },\\n  })\\n}\", \"exit_code\": 0, \"error\": null}\n\n[Subdirectory context discovered: paragu-ai-builder/AGENTS.md]\n# Paragu-AI Builder - AI Agent Configuration\n\n> AI-first development configuration for the Universal Website Generation Engine\n> This file guides AI agents working on this project\n\n## Project Context\n\n**Paragu-AI Builder** is a multi-tenant, multi-locale website generation engine for Paraguayan businesses. It uses:\n- **Next.js 15** + **TypeScript** + **Tailwind 3.4.19**\n- **Supabase** (PostgreSQL + Auth)\n- **Cloudflare Pages** (deployment)\n- **Token-based theming** (CSS variables, not hardcoded colors)\n- **21 reusable section components** serving 20+ business types\n\n## AI Agent Quick Start\n\n### When Starting Work on This Project\n\n1. **Read This File** - You are here! ✅\n2. **Read CLAUDE.md** - Technical architecture and coding standards\n3. **Check Current State** - Run `git status` to see what's happening\n4. **Check Open PRs** - Run `gh pr list` to see in-flight work\n5. **Review Recent Commits** - Run `git log --oneline -10`\n\n### Critical Rules (NEVER Break These)\n\n```\n⚠️  DO NOT upgrade Tailwind to v4 (breaks build)\n⚠️  DO NOT hardcode colors - always use var(--primary)\n⚠️  DO NOT skip business_id in database queries\n⚠️  DO NOT commit .env files\n⚠️  DO NOT silently catch errors - always log/rethrow\n```\n\n## Project Structure for AI Agents\n\n```\nsrc/                         # Data layer (JSON configs)\n  ├── schemas/               # Business type schemas\n  ├── tokens/               # Design tokens (colors, fonts)\n  ├── registry/             # Business type registry\n  └── content/              # Content templates\n\nweb/                        # Application layer\n  ├── app/\n  │   ├── [business]/       # Generated sites (SSG)\n  │   ├── admin/            # Admin dashboard\n  │   ├── api/              # API routes\n  │   └── s/[locale]/       # Multi-tenant sites\n  ├── components/\n  │   ├── sections/         # 21 reusable sections\n  │   └── ui/              # UI primitives (CVA-based)\n  ├── lib/\n  │   ├── supabase/         # Database clients\n  │   ├── engine/           # Template engine\n  │   └── types.ts          # TypeScript types\n  └── scripts/              # Build/generation scripts\n```\n\n## AI-Specific Patterns\n\n### 1. Adding New Business Type (Most Common Task)\n\nWhen adding a new business type (e.g., `dentist`, `mechanic`):\n\n**Required Files:**\n```\nsrc/\n├── registry/[type].type.json          # Section config, features\n├── tokens/[type].tokens.json         # Colors, fonts\n├── content/[type].content.json       # Spanish copy templates\n└── schemas/[type].schema.json        # Validation schema\n```\n\n**Reuses:**\n- ✅ Existing section components from `web/components/sections/`\n- ✅ Base tokens from `src/tokens/base.tokens.json`\n- ✅ No new React components needed (usually)\n\n**Example (5-minute add):**\n```json\n// src/registry/dentist.type.json\n{\n  \"id\": \"dentist\",\n  \"nameEs\": \"Consultorio Dental\",\n  \"tokens\": \"dentist\",\n  \"sections\": [\"hero\", \"services\", \"team\", \"testimonials\", \"contact\"],\n  \"features\": { \"booking\": true, \"emergency\": true }\n}\n```\n\n### 2. Adding New Section Component\n\nWhen adding a new reusable section:\n\n**File:** `web/components/sections/[name]-section.tsx`\n\n**Pattern:**\n```typescript\ninterface [Name]SectionProps {\n  title: string\n  items: Array<{...}>\n  // Theme automatically applied via CSS variables\n}\n\nexport function [Name]Section({ title, items }: [Name]SectionProps) {\n  return (\n    <section className=\"py-16 bg-[var(--background)]\">\n      <h2 className=\"text-[var(--primary)]\">{title}</h2>\n      {/* Content */}\n    </section>\n  )\n}\n```\n\n**Registration:** Add to `web/lib/engine/renderer.tsx`\n\n### 3. Database Schema Changes\n\nWhen modifying Supabase schema:\n\n**Location:** `supabase/migrations/000_complete_schema.sql`\n\n**Rules:**\n- Add new tables at the end\n- Include RLS policies for every table\n- Add indexes for query performance\n- Create views for analytics if needed\n- Test with `npm run typecheck`\n\n### 4. Environment Variables\n\n**Local:** `web/.env.local` (gitignored)\n**Production:** Cloudflare Pages dashboard\n\n**Required:**\n```\nNEXT_PUBLIC_SUPABASE_URL=\nNEXT_PUBLIC_SUPABASE_ANON_KEY=\nSUPABASE_SERVICE_ROLE_KEY=\n```\n\n**Optional:**\n```\nMERCADOPAGO_PUBLIC_KEY=\nMERCADOPAGO_ACCESS_TOKEN=\nNEXT_PUBLIC_GA_MEASUREMENT_ID=\n```\n\n## AI-Optimized Workflows\n\n### Workflow 1: Generate Preview Site for Lead\n\n**Context:** Admin wants to generate a demo site for a lead\n\n**Steps:**\n1. Query lead from `leads` table\n2. Compose page using `composePage()` from business type\n3. Generate static HTML\n4. Store in `generated_sites` table\n5. Return preview URL\n\n**Key Files:**\n- `web/lib/engine/compose.ts` - Page composition\n- `web/lib/engine/renderer.tsx` - Section rendering\n- `web/app/admin/leads/page.tsx` - Admin UI\n\n### Workflow 2: WhatsApp Outreach\n\n**Context:** Send templated WhatsApp message to lead\n\n**Steps:**\n1. Get lead phone/whatsapp from `leads` table\n2. Generate wa.me link with templated message\n3. Log event to `outreach_events` table\n4. Update lead status to `contacted`\n\n**Template Location:** `web/lib/outreach/templates.ts` (create if needed)\n\n### Workflow 3: MercadoPago Payment\n\n**Context:** Lead wants to subscribe\n\n**Steps:**\n1. Create subscription in `subscriptions` table\n2. Generate MercadoPago checkout\n3. Handle webhook at `/api/webhooks/mercadopago`\n4. Update subscription status on payment\n5. Grant access to self-service editing\n\n## Common AI Tasks & Solutions\n\n### Task: Fix Build Error\n\n**Checklist:**\n1. `npm run typecheck` - TypeScript errors\n2. `npm run lint` - ESLint errors\n3. Check for Tailwind v4 (should be 3.4.19)\n4. Check for hardcoded colors (should use CSS vars)\n5. Check for missing `business_id` in queries\n\n### Task: Debug Database Connection\n\n**Checklist:**\n1. `.env.local` exists with correct keys\n2. Supabase project is running\n3. RLS policies allow the operation\n4. Using correct client (server vs browser vs admin)\n\n### Task: Add New Feature\n\n**Questions to Ask:**\n1. Can this reuse existing sections? (95% of cases: YES)\n2. Does it need new database tables? (check schema first)\n3. Is it admin-only or public? (affects auth)\n4. Does it need MercadoPago? (payments feature)\n\n### Task: Optimize Performance\n\n**Strategies:**\n1. Use Server Components by default\n2. Lazy load heavy components\n3. Add database indexes for common queries\n4. Use Cloudflare caching rules\n5. Minimize client-side JavaScript\n\n## AI Tools Available\n\n### Firecrawl Skills (Web Scraping)\n\nInstalled and ready to use:\n\n```typescript\n// Use skill for web research\nimport { skill } from '@/lib/skills'\n\n// Example: Research competitor websites\nawait skill('firecrawl-scrape', {\n  url: 'https://competitor.com',\n  format: 'markdown'\n})\n```\n\n**Available Skills:**\n- `firecrawl-scrape` - Single page extraction\n- `firecrawl-crawl` - Site-wide crawling\n- `firecrawl-search` - Web search with content\n- `firecrawl-map` - URL discovery\n- `firecrawl-agent` - Structured data extraction\n- `firecrawl-download` - Bulk download\n\n### When to Use Skills\n\n✅ Research competitor pricing  \n✅ Extract content from existing business websites  \n✅ Find images/logos for leads  \n✅ Validate business information  \n\n❌ Don't use for: Database queries, template rendering, auth operations\n\n## Testing for AI Agents\n\n### Quick Test Commands\n\n```bash\n# Type checking\nnpm run typecheck\n\n# Build test\nnpm run build\n\n# Unit tests\nnpm run test:unit\n\n# E2E tests (requires dev server)\nnpm run dev &\nnpm run test:e2e\n```\n\n### What to Test\n\n**New Business Type:**\n- Registry file is valid JSON\n- Tokens file has all required fields\n- Content template renders correctly\n- Section order works in compose\n\n**New Section:**\n- Renders without errors\n- Accepts all props\n- Uses CSS variables (no hardcoded colors)\n- Responsive on mobile\n\n**Database Changes:**\n- Migration runs without errors\n- RLS policies work\n- Indexes improve query speed\n\n## AI Communication Guidelines\n\n### Commit Messages\n\nUse conventional commits:\n```\nfeat: Add dentist business type\nfix: Resolve token resolution for missing palettes\nrefactor: Simplify hostname mapping\ndocs: Upda\n\n[...truncated AGENTS.md: 9,950 chars total]",
+      "tool_call_id": "call_01_FnNZUs3mk3mdGezTGOXD5512"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me also check if there are existing instances and look at the whatsapp-ai-agent (Ai-Whisperers bridge).",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_AEFEsEFaSVt4NSQ9Kcye9824",
+          "call_id": "call_00_AEFEsEFaSVt4NSQ9Kcye9824",
+          "response_item_id": "fc_00_AEFEsEFaSVt4NSQ9Kcye9824",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Get the actual API key from the environment\\ndocker exec $(docker ps -q --filter name=evolution_evolution_api) env 2>/dev/null | grep AUTHENTICATION_API_KEY | head -1\"}"
+          }
+        },
+        {
+          "id": "call_01_FUKd01c26qgJLgnvEW9x3303",
+          "call_id": "call_01_FUKd01c26qgJLgnvEW9x3303",
+          "response_item_id": "fc_01_FUKd01c26qgJLgnvEW9x3303",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check the whatsapp-ai-agent source to understand what it does\\ndocker ps --filter name=whatsapp-ai-stack --format \\\"{{.Names}}\\\"\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"AUTHENTICATION_API_KEY=a53c00...d0e1\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_AEFEsEFaSVt4NSQ9Kcye9824"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"whatsapp-ai-stack_whatsapp-ai.1.dy3c9och9jpavscmkl7nxgsgm\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_FUKd01c26qgJLgnvEW9x3303"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_HVeT3C5ngzCcCeS9S5MU7792",
+          "call_id": "call_00_HVeT3C5ngzCcCeS9S5MU7792",
+          "response_item_id": "fc_00_HVeT3C5ngzCcCeS9S5MU7792",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Let me check what endpoints the whatsapp-ai-agent exposes\\ndocker exec whatsapp-ai-stack_whatsapp-ai.1.dy3c9och9jpavscmkl7nxgsgm env 2>/dev/null | grep -E 'PORT|HOST|URL' | head -20\"}"
+          }
+        },
+        {
+          "id": "call_01_c1KoAfUY2DkTkBvxVV107781",
+          "call_id": "call_01_c1KoAfUY2DkTkBvxVV107781",
+          "response_item_id": "fc_01_c1KoAfUY2DkTkBvxVV107781",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check the actual API key by looking at postgres connection\\ndocker exec evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh env 2>/dev/null | grep -E 'AUTHENTICATION|DATABASE' | head -10\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"HOSTNAME=whatsapp-ai\\nEVOLUTION_API_URL=https://evolution.sunstein.cloud\\nHOST=0.0.0.0\\nLITELLM_URL=http://litellm:4000/v1\\nPORT=8000\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_HVeT3C5ngzCcCeS9S5MU7792"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"AUTHENTICATION_API_KEY=a53c00...d0e1\\[REDACTED_TOKEN]***\\nDATABASE_CONNECTION_CLIENT_NAME=evolution\\nDATABASE_CONNECTION_URI=[REDACTED_DB_URL]", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_01_c1KoAfUY2DkTkBvxVV107781"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me try to get the actual API key since it's partially masked, and check for existing webhook endpoints in the traefik config.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_AGGPNgVtf4EQZeBXYB168772",
+          "call_id": "call_00_AGGPNgVtf4EQZeBXYB168772",
+          "response_item_id": "fc_00_AGGPNgVtf4EQZeBXYB168772",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Try to get the actual key from the environment variables via container inspect\\ndocker inspect evolution_evolution_api.1.y6i3kfvmondm7g749el4q0tqh 2>/dev/null | python3 -c \\\"\\nimport sys, json\\ndata = json.load(sys.stdin)\\nenv = data[0]['Config']['Env']\\nfor e in env:\\n    if 'AUTHENTICATION_API_KEY' in e:\\n        print(e)\\n        break\\n\\\" 2>/dev/null || echo \\\"Failed to extract\\\"\"}"
+          }
+        },
+        {
+          "id": "call_01_VJiplnqdDCllYXDLjz4I6769",
+          "call_id": "call_01_VJiplnqdDCllYXDLjz4I6769",
+          "response_item_id": "fc_01_VJiplnqdDCllYXDLjz4I6769",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"# Check if the tsuki website has any existing webhook endpoints for orders\\ndocker ps | grep -i tsuki\"}"
+          }
+        },
+        {
+          "id": "call_02_0qlhaPI7qhSKGxCqv79l1888",
+          "call_id": "call_02_0qlhaPI7qhSKGxCqv79l1888",
+          "response_item_id": "fc_02_0qlhaPI7qhSKGxCqv79l1888",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"docker service ls | grep -i tsuki\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"\", \"exit_code\": -1, \"error\": \"BLOCKED: Command timed out. Do NOT retry this command.\", \"status\": \"blocked\"}",
+      "tool_call_id": "call_00_AGGPNgVtf4EQZeBXYB168772"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "[Tool execution skipped — terminal was not started. User sent a new message]",
+      "tool_call_id": "call_01_VJiplnqdDCllYXDLjz4I6769"
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "[Tool execution skipped — terminal was not started. User sent a new message]",
+      "tool_call_id": "call_02_0qlhaPI7qhSKGxCqv79l1888"
+    }
+  ]
+}

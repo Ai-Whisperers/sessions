@@ -1,0 +1,340 @@
+{
+  "session_id": "20260429_010044_39ce1e",
+  "model": "groq-llama",
+  "base_url": "http://localhost:4000/v1",
+  "platform": "whatsapp",
+  "session_start": "2026-04-29T01:00:44.835220",
+  "last_updated": "2026-04-29T01:00:55.208828",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nConversation started: Wednesday, April 29, 2026 01:00 AM\nModel: groq-llama\nProvider: custom\n\nYou are on a text messaging communication platform, WhatsApp. Please do not use markdown as it does not render. You can send media files natively: to deliver a file to the user, include MEDIA:/absolute/path/to/file in your response. The file will be sent as a native WhatsApp attachment — images (.jpg, .png, .webp) appear as photos, videos (.mp4, .mov) play inline, and other files arrive as downloadable documents. You can also include image URLs in markdown format ![alt](url) and they will be sent as photos.",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "patch",
+        "description": "Targeted find-and-replace edits in files. Use this instead of sed/awk in terminal. Uses fuzzy matching (9 strategies) so minor whitespace/indentation differences won't break it. Returns a unified diff. Auto-runs syntax checks after editing.\n\nReplace mode (default): find a unique string and replace it.\nPatch mode: apply V4A multi-file patches for bulk changes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "replace",
+                "patch"
+              ],
+              "description": "Edit mode: 'replace' for targeted find-and-replace, 'patch' for V4A multi-file patches",
+              "default": "replace"
+            },
+            "path": {
+              "type": "string",
+              "description": "File path to edit (required for 'replace' mode)"
+            },
+            "old_string": {
+              "type": "string",
+              "description": "Text to find in the file (required for 'replace' mode). Must be unique in the file unless replace_all=true. Include enough surrounding context to ensure uniqueness."
+            },
+            "new_string": {
+              "type": "string",
+              "description": "Replacement text (required for 'replace' mode). Can be empty string to delete the matched text."
+            },
+            "replace_all": {
+              "type": "boolean",
+              "description": "Replace all occurrences instead of requiring a unique match (default: false)",
+              "default": false
+            },
+            "patch": {
+              "type": "string",
+              "description": "V4A format patch content (required for 'patch' mode). Format:\n*** Begin Patch\n*** Update File: path/to/file\n@@ context hint @@\n context line\n-removed line\n+added line\n*** End Patch"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to read (absolute, relative, or ~/path)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line number to start reading from (1-indexed, default: 1)",
+              "default": 1,
+              "minimum": 1
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of lines to read (default: 500, max: 2000)",
+              "default": 500,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Search file contents or find files by name. Use this instead of grep/rg/find/ls in terminal. Ripgrep-backed, faster than shell equivalents.\n\nContent search (target='content'): Regex search inside files. Output modes: full matches with line numbers, file paths only, or match counts.\n\nFile search (target='files'): Find files by glob pattern (e.g., '*.py', '*config*'). Also use this instead of ls — results sorted by modification time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex pattern for content search, or glob pattern (e.g., '*.py') for file search"
+            },
+            "target": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files"
+              ],
+              "description": "'content' searches inside file contents, 'files' searches for files by name",
+              "default": "content"
+            },
+            "path": {
+              "type": "string",
+              "description": "Directory or file to search in (default: current working directory)",
+              "default": "."
+            },
+            "file_glob": {
+              "type": "string",
+              "description": "Filter files by pattern in grep mode (e.g., '*.py' to only search Python files)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 50)",
+              "default": 50
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Skip first N results for pagination (default: 0)",
+              "default": 0
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_only",
+                "count"
+              ],
+              "description": "Output format for grep mode: 'content' shows matching lines with line numbers, 'files_only' lists file paths, 'count' shows match counts per file",
+              "default": "content"
+            },
+            "context": {
+              "type": "integer",
+              "description": "Number of context lines before and after each match (grep mode only)",
+              "default": 0
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write content to a file, completely replacing existing content. Use this instead of echo/cat heredoc in terminal. Creates parent directories automatically. OVERWRITES the entire file — use 'patch' for targeted edits.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write (will be created if it doesn't exist, overwritten if it does)"
+            },
+            "content": {
+              "type": "string",
+              "description": "Complete content to write to the file"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 6,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Draft Privacy Policy and Terms of Service (Spanish) for Dayah LitWorks"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "bhkw09qb8",
+          "call_id": "bhkw09qb8",
+          "response_item_id": "fc_bhkw09qb8",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"content\":\"# Política de Privacidad\\nDayah LitWorks se compromete a proteger la privacidad de nuestros clientes y usuarios. Esta política de privacidad describe cómo recopilamos, utilizamos y protegemos la información personal que nos proporcionan.\\n\\n## Recopilación de información\\nRecopilamos información personal cuando nuestros clientes y usuarios nos la proporcionan directamente, como cuando se registran en nuestro sitio web o nos contactan a través de correo electrónico.\\n\\n## Uso de la información\\nUtilizamos la información personal que nos proporcionan para:\\n* Proporcionar nuestros servicios y productos\\n* Responder a sus preguntas y comentarios\\n* Mejorar nuestra oferta de servicios y productos\\n\\n## Protección de la información\\nTomamos medidas de seguridad razonables para proteger la información personal que nos proporcionan, incluyendo el uso de tecnologías de cifrado y firewall.\\n\\n## Derechos ARCO\\nLos titulares de la información personal tienen derecho a acceder, rectificar y cancelar su información, así como a oponerse al tratamiento de la misma. Para ejercer estos derechos, pueden contactarnos a través de dayahlitworks@gmail.com.\\n\\n## Contacto\\nSi tiene alguna pregunta o inquietud sobre nuestra política de privacidad, por favor no dude en contactarnos a través de dayahlitworks@gmail.com.\",\"path\":\"/home/ai-whisperers/paragu-ai-builder/web/content/legal/dayah-litworks/politica-de-privacidad.md\"}"
+          }
+        },
+        {
+          "id": "cnsye9z20",
+          "call_id": "cnsye9z20",
+          "response_item_id": "fc_cnsye9z20",
+          "type": "function",
+          "function": {
+            "name": "write_file",
+            "arguments": "{\"content\":\"# Términos de Servicio\\nDayah LitWorks se compromete a proporcionar servicios y productos de alta calidad a nuestros clientes. Estos términos de servicio describen los términos y condiciones bajo los cuales ofrecemos nuestros servicios y productos.\\n\\n## Pago y precio\\nEl pago se realizará en dos partes: 50% por adelantado para iniciar el proyecto y 50% antes de la entrega final. Los precios incluyen dos rondas de revisión.\\n\\n## Revisión y entrega\\nEl cliente tiene derecho a dos rondas de revisión. Después de la segunda ronda de revisión, el cliente debe pagar la segunda mitad del precio acordado para recibir la entrega final.\\n\\n## Derechos de autor\\nLos derechos de autor de los trabajos realizados pertenecen a Dayah LitWorks hasta que el cliente pague el 100% del precio acordado.\\n\\n## Uso de los trabajos\\nDayah LitWorks se reserva el derecho de mostrar los trabajos realizados en su portafolio.\\n\\n## Entrega de archivos\\nLos archivos finales se entregarán en formato JPG, PDF o PNG de alta resolución.\\n\\n## Plazos de entrega\\nLos plazos de entrega son los siguientes:\\n* 1-2 semanas para eBooks y papelbacks\\n* 2-3 semanas para combos\\n\\n## Pago\\nEl pago se puede realizar a través de transferencia bancaria, efectivo (en Paraguay), Western Union o Wise (internacional). No se acepta PayPal.\\n\\n## Cancelación\\nEl cliente no tiene derecho a cancelar el proyecto una vez iniciado. Si el cliente decide cancelar, no se realizarán reembolsos.\\n\\n## Cambios en la orientación\\nCualquier cambio en la orientación del proyecto puede afectar el presupuesto y el plazo de entrega.\\n\\n## Días laborables\\nNuestros días laborables son de lunes a viernes.\\n\\n## Contacto\\nSi tiene alguna pregunta o inquietud sobre nuestros términos de servicio, por favor no dude en contactarnos a través de dayahlitworks@gmail.com.\",\"path\":\"/home/ai-whisperers/paragu-ai-builder/web/content/legal/dayah-litworks/terminos-de-servicio.md\"}"
+          }
+        },
+        {
+          "id": "nvhcxdj5v",
+          "call_id": "nvhcxdj5v",
+          "response_item_id": "fc_nvhcxdj5v",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\":\"mkdir -p /home/ai-whisperers/paragu-ai-builder/web/content/legal/dayah-litworks\",\"workdir\":\"/root\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "content": "{\"bytes_written\": 1317, \"dirs_created\": true}\n\n[Subdirectory context discovered: /home/ai-whisperers/paragu-ai-builder/AGENTS.md]\n# Paragu-AI Builder - AI Agent Configuration\n\n> AI-first development configuration for the Universal Website Generation Engine\n> This file guides AI agents working on this project\n\n## Project Context\n\n**Paragu-AI Builder** is a multi-tenant, multi-locale website generation engine for Paraguayan businesses. It uses:\n- **Next.js 15** + **TypeScript** + **Tailwind 3.4.19**\n- **Supabase** (PostgreSQL + Auth)\n- **Cloudflare Pages** (deployment)\n- **Token-based theming** (CSS variables, not hardcoded colors)\n- **21 reusable section components** serving 20+ business types\n\n## AI Agent Quick Start\n\n### When Starting Work on This Project\n\n1. **Read This File** - You are here! ✅\n2. **Read CLAUDE.md** - Technical architecture and coding standards\n3. **Check Current State** - Run `git status` to see what's happening\n4. **Check Open PRs** - Run `gh pr list` to see in-flight work\n5. **Review Recent Commits** - Run `git log --oneline -10`\n\n### Critical Rules (NEVER Break These)\n\n```\n⚠️  DO NOT upgrade Tailwind to v4 (breaks build)\n⚠️  DO NOT hardcode colors - always use var(--primary)\n⚠️  DO NOT skip business_id in database queries\n⚠️  DO NOT commit .env files\n⚠️  DO NOT silently catch errors - always log/rethrow\n```\n\n## Project Structure for AI Agents\n\n```\nsrc/                         # Data layer (JSON configs)\n  ├── schemas/               # Business type schemas\n  ├── tokens/               # Design tokens (colors, fonts)\n  ├── registry/             # Business type registry\n  └── content/              # Content templates\n\nweb/                        # Application layer\n  ├── app/\n  │   ├── [business]/       # Generated sites (SSG)\n  │   ├── admin/            # Admin dashboard\n  │   ├── api/              # API routes\n  │   └── s/[locale]/       # Multi-tenant sites\n  ├── components/\n  │   ├── sections/         # 21 reusable sections\n  │   └── ui/              # UI primitives (CVA-based)\n  ├── lib/\n  │   ├── supabase/         # Database clients\n  │   ├── engine/           # Template engine\n  │   └── types.ts          # TypeScript types\n  └── scripts/              # Build/generation scripts\n```\n\n## AI-Specific Patterns\n\n### 1. Adding New Business Type (Most Common Task)\n\nWhen adding a new business type (e.g., `dentist`, `mechanic`):\n\n**Required Files:**\n```\nsrc/\n├── registry/[type].type.json          # Section config, features\n├── tokens/[type].tokens.json         # Colors, fonts\n├── content/[type].content.json       # Spanish copy templates\n└── schemas/[type].schema.json        # Validation schema\n```\n\n**Reuses:**\n- ✅ Existing section components from `web/components/sections/`\n- ✅ Base tokens from `src/tokens/base.tokens.json`\n- ✅ No new React components needed (usually)\n\n**Example (5-minute add):**\n```json\n// src/registry/dentist.type.json\n{\n  \"id\": \"dentist\",\n  \"nameEs\": \"Consultorio Dental\",\n  \"tokens\": \"dentist\",\n  \"sections\": [\"hero\", \"services\", \"team\", \"testimonials\", \"contact\"],\n  \"features\": { \"booking\": true, \"emergency\": true }\n}\n```\n\n### 2. Adding New Section Component\n\nWhen adding a new reusable section:\n\n**File:** `web/components/sections/[name]-section.tsx`\n\n**Pattern:**\n```typescript\ninterface [Name]SectionProps {\n  title: string\n  items: Array<{...}>\n  // Theme automatically applied via CSS variables\n}\n\nexport function [Name]Section({ title, items }: [Name]SectionProps) {\n  return (\n    <section className=\"py-16 bg-[var(--background)]\">\n      <h2 className=\"text-[var(--primary)]\">{title}</h2>\n      {/* Content */}\n    </section>\n  )\n}\n```\n\n**Registration:** Add to `web/lib/engine/renderer.tsx`\n\n### 3. Database Schema Changes\n\nWhen modifying Supabase schema:\n\n**Location:** `supabase/migrations/000_complete_schema.sql`\n\n**Rules:**\n- Add new tables at the end\n- Include RLS policies for every table\n- Add indexes for query performance\n- Create views for analytics if needed\n- Test with `npm run typecheck`\n\n### 4. Environment Variables\n\n**Local:** `web/.env.local` (gitignored)\n**Production:** Cloudflare Pages dashboard\n\n**Required:**\n```\nNEXT_PUBLIC_SUPABASE_URL=\nNEXT_PUBLIC_SUPABASE_ANON_KEY=\nSUPABASE_SERVICE_ROLE_KEY=\n```\n\n**Optional:**\n```\nMERCADOPAGO_PUBLIC_KEY=\nMERCADOPAGO_ACCESS_TOKEN=\nNEXT_PUBLIC_GA_MEASUREMENT_ID=\n```\n\n## AI-Optimized Workflows\n\n### Workflow 1: Generate Preview Site for Lead\n\n**Context:** Admin wants to generate a demo site for a lead\n\n**Steps:**\n1. Query lead from `leads` table\n2. Compose page using `composePage()` from business type\n3. Generate static HTML\n4. Store in `generated_sites` table\n5. Return preview URL\n\n**Key Files:**\n- `web/lib/engine/compose.ts` - Page composition\n- `web/lib/engine/renderer.tsx` - Section rendering\n- `web/app/admin/leads/page.tsx` - Admin UI\n\n### Workflow 2: WhatsApp Outreach\n\n**Context:** Send templated WhatsApp message to lead\n\n**Steps:**\n1. Get lead phone/whatsapp from `leads` table\n2. Generate wa.me link with templated message\n3. Log event to `outreach_events` table\n4. Update lead status to `contacted`\n\n**Template Location:** `web/lib/outreach/templates.ts` (create if needed)\n\n### Workflow 3: MercadoPago Payment\n\n**Context:** Lead wants to subscribe\n\n**Steps:**\n1. Create subscription in `subscriptions` table\n2. Generate MercadoPago checkout\n3. Handle webhook at `/api/webhooks/mercadopago`\n4. Update subscription status on payment\n5. Grant access to self-service editing\n\n## Common AI Tasks & Solutions\n\n### Task: Fix Build Error\n\n**Checklist:**\n1. `npm run typecheck` - TypeScript errors\n2. `npm run lint` - ESLint errors\n3. Check for Tailwind v4 (should be 3.4.19)\n4. Check for hardcoded colors (should use CSS vars)\n5. Check for missing `business_id` in queries\n\n### Task: Debug Database Connection\n\n**Checklist:**\n1. `.env.local` exists with correct keys\n2. Supabase project is running\n3. RLS policies allow the operation\n4. Using correct client (server vs browser vs admin)\n\n### Task: Add New Feature\n\n**Questions to Ask:**\n1. Can this reuse existing sections? (95% of cases: YES)\n2. Does it need new database tables? (check schema first)\n3. Is it admin-only or public? (affects auth)\n4. Does it need MercadoPago? (payments feature)\n\n### Task: Optimize Performance\n\n**Strategies:**\n1. Use Server Components by default\n2. Lazy load heavy components\n3. Add database indexes for common queries\n4. Use Cloudflare caching rules\n5. Minimize client-side JavaScript\n\n## AI Tools Available\n\n### Firecrawl Skills (Web Scraping)\n\nInstalled and ready to use:\n\n```typescript\n// Use skill for web research\nimport { skill } from '@/lib/skills'\n\n// Example: Research competitor websites\nawait skill('firecrawl-scrape', {\n  url: 'https://competitor.com',\n  format: 'markdown'\n})\n```\n\n**Available Skills:**\n- `firecrawl-scrape` - Single page extraction\n- `firecrawl-crawl` - Site-wide crawling\n- `firecrawl-search` - Web search with content\n- `firecrawl-map` - URL discovery\n- `firecrawl-agent` - Structured data extraction\n- `firecrawl-download` - Bulk download\n\n### When to Use Skills\n\n✅ Research competitor pricing  \n✅ Extract content from existing business websites  \n✅ Find images/logos for leads  \n✅ Validate business information  \n\n❌ Don't use for: Database queries, template rendering, auth operations\n\n## Testing for AI Agents\n\n### Quick Test Commands\n\n```bash\n# Type checking\nnpm run typecheck\n\n# Build test\nnpm run build\n\n# Unit tests\nnpm run test:unit\n\n# E2E tests (requires dev server)\nnpm run dev &\nnpm run test:e2e\n```\n\n### What to Test\n\n**New Business Type:**\n- Registry file is valid JSON\n- Tokens file has all required fields\n- Content template renders correctly\n- Section order works in compose\n\n**New Section:**\n- Renders without errors\n- Accepts all props\n- Uses CSS variables (no hardcoded colors)\n- Responsive on mobile\n\n**Database Changes:**\n- Migration runs without errors\n- RLS policies work\n- Indexes improve query speed\n\n## AI Communication Guidelines\n\n### Commit Messages\n\nUse conventional commits:\n```\nfeat: Add dentist business type\nfix: Resolve token resolution for missing palettes\nrefactor: Simplify hostname mapping\ndocs: Upda\n\n[...truncated AGENTS.md: 9,940 chars total]",
+      "tool_call_id": "bhkw09qb8"
+    },
+    {
+      "role": "tool",
+      "content": "{\"bytes_written\": 1807, \"dirs_created\": true}",
+      "tool_call_id": "cnsye9z20"
+    },
+    {
+      "role": "tool",
+      "content": "{\"output\": \"\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "nvhcxdj5v"
+    },
+    {
+      "role": "assistant",
+      "content": "The task of drafting a Privacy Policy and Terms of Service (Spanish) for Dayah LitWorks has been completed. \n\nSummary: \n- Created two files: politica-de-privacidad.md and terminos-de-servicio.md.\n- Used the write_file function to write content to these files.\n- Created parent directories with mkdir -p.\n\nNo issues were encountered during the process. \n\nThe output of the write_file and terminal functions has been provided above. \n\nThe files created are:\n politica-de-privacidad.md\n terminos-de-servicio.md\n\nThese files are located in the directory:\n/home/ai-whisperers/paragu-ai-builder/web/content/legal/dayah-litworks/ \n\nPlease review the contents of these files to ensure they meet your requirements.",
+      "reasoning": null,
+      "finish_reason": "stop"
+    }
+  ]
+}

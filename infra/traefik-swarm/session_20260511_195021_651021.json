@@ -1,0 +1,2210 @@
+{
+  "session_id": "20260511_195021_651021",
+  "model": "deepseek-chat",
+  "base_url": "https://api.deepseek.com/v1",
+  "platform": "tui",
+  "session_start": "[REDACTED_PHONE]T19:50:21.148831",
+  "last_updated": "[REDACTED_PHONE]T19:50:56.256862",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nIf the user asks about configuring, setting up, or using Hermes Agent itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') before answering. Docs: https://hermes-agent.nousresearch.com/docs\n\nConversation started: Monday, May 11, 2026 07:50 PM\nModel: deepseek-chat\nProvider: deepseek\n\nHost: Linux (6.8.0-90-generic)\nUser home directory: /root\nCurrent working directory: /root/.hermes/hermes-agent",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_configure_inbound_ai",
+        "description": "Set up an AI voice agent to autonomously answer incoming calls to a phone number. This is the AgentCall equivalent of Twilio's inbound voice webhook URL: instead of pointing the number at a webhook you host, you give AgentCall a system prompt and AgentCall handles the call with a managed AI voice agent. Use this (NOT 'create_webhook') when you want a phone number to answer calls. Set the system prompt, voice, and optional first message; when someone calls the number, the AI picks up and follows the prompt. Pass `notify.emailTo` to also receive a plain-English summary of every call (caller, intent, urgency, callback time) so small-business owners do not need to read transcripts. Free tier: 5 minutes/month free trial, no card required. Once the trial is exhausted, inbound AI calls hang up until the 1st of next month (UTC) or until the user upgrades to Pro for unlimited inbound AI at $0.40/min. Available on US and Canada numbers. Before writing systemPrompt from scratch, fetch GET https://api.agentcall.co/v1/calls/prompt-templates (no auth) for pre-built templates: receptionist, lead qualifier, appointment booker, customer support, call screener. Preview voices via GET https://api.agentcall.co/v1/calls/voices.\n\nIMPORTANT (persistent config: confirm before enabling, monitor after): this is NOT a one-shot tool call. Once configured, the number autonomously answers every incoming call from then on, accumulates per-minute charges (at $0.40/min on Pro past the Free 5-minute monthly trial), and keeps doing so until disable_inbound_ai is called. Before invoking, get the user's explicit confirmation on: (1) exact E.164 number to configure (read it back), (2) systemPrompt content (read back at least the WHAT WE DO and PRICING sections so the user can correct invented facts before any caller hears them), (3) record setting (default false; recording adds $0.01/min and 1-year retention), (4) notify.emailTo (confirm the address is theirs and that they want every call summarized), (5) maxDurationSecs (use the smallest value that fits the use case so a stuck call cannot run for an hour), (6) budget expectations (Free 5 min/month then hang-up, or Pro $0.40/min with no monthly cap). After enabling, periodically check get_usage so the user sees consumption, and proactively offer to call disable_inbound_ai when their stated goal is met (testing finished, campaign over, business closed for the season). On reports of unexpected charges or unexpected calls, disable_inbound_ai first then debug.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to configure for inbound AI (e.g. 'num_abc123')"
+            },
+            "systemPrompt": {
+              "type": "string",
+              "description": "Instructions for the AI when it answers (e.g. 'You are the front desk for Acme Plumbing. Greet callers, take their name, phone, and a brief description of the issue, then say someone will call back within 2 hours.')"
+            },
+            "voice": {
+              "type": "string",
+              "description": "Voice: 10 options. marin (soft, natural) and cedar (warm, grounded) are the newest natural-sounding picks. shimmer (default), sage, ash, ballad, coral, echo, verse, alloy. Preview at GET /v1/calls/voices."
+            },
+            "firstMessage": {
+              "type": "string",
+              "description": "What the AI says when it picks up (e.g. 'Hi, thanks for calling Acme Plumbing. How can I help?')"
+            },
+            "maxDurationSecs": {
+              "type": "number",
+              "description": "Max call duration in seconds (default 600, max 3600)"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Opt in to call recording. When true, every inbound call to this number is recorded and listenable from the dashboard. Adds $0.01/min on top of the AI voice rate. Tell the user to make sure their first message includes a TCPA disclosure ('this call may be recorded for quality') — required by two-party-consent states. Default false."
+            },
+            "notify": {
+              "type": "object",
+              "properties": {
+                "emailTo": {
+                  "type": "string",
+                  "format": "email",
+                  "maxLength": 200,
+                  "description": "Email address to receive the post-call summary"
+                },
+                "businessName": {
+                  "type": "string",
+                  "maxLength": 100,
+                  "description": "Business name shown in the email subject and body"
+                },
+                "agencyName": {
+                  "type": "string",
+                  "maxLength": 50,
+                  "description": "Agency/brand name used in the email sign-off"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Optional post-call email notification. After every call, AgentCall summarizes the transcript with an LLM and emails the summary to the configured address. Spam calls are auto-suppressed. Email-only for v1; SMS notifications are not exposed."
+            }
+          },
+          "required": [
+            "numberId",
+            "systemPrompt"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_create_webhook",
+        "description": "Subscribe to outbound event delivery: AgentCall POSTs to your HTTPS URL when events fire (SMS received, OTP detected, call completed, etc.). NOT for handling inbound calls — to make a phone number answer incoming calls, use 'configure_inbound_ai' instead. The URL must use HTTPS.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "HTTPS webhook endpoint URL (e.g. '[REDACTED_WEBHOOK]')"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Events to subscribe to. Options: 'sms.inbound', 'sms.otp', 'call.inbound', 'call.ringing', 'call.status', 'call.recording', 'number.released'"
+            }
+          },
+          "required": [
+            "url",
+            "events"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_delete_webhook",
+        "description": "Deactivate and remove a webhook endpoint. It will immediately stop receiving events.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "webhookId": {
+              "type": "string",
+              "description": "The webhook ID to delete (e.g. 'wh_abc123')"
+            }
+          },
+          "required": [
+            "webhookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_disable_inbound_ai",
+        "description": "Disable inbound AI on a phone number. Future incoming calls will be hung up by the carrier until re-configured. Does not release the number — billing for the number itself continues.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to clear inbound config for"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_call",
+        "description": "Get details of a specific call by ID, including status, duration, and recording URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The call ID to look up (e.g. 'call_abc123')"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_call_transcript",
+        "description": "Get the transcript of a completed AI voice call. Returns the full conversation with timestamps, a summary, and call duration.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The AI call ID to get the transcript for"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_inbox",
+        "description": "Get inbound SMS messages for a phone number. Can filter to show only messages containing OTP codes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to check inbox for"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Max messages to return (default 20)"
+            },
+            "otpOnly": {
+              "type": "boolean",
+              "description": "If true, only return messages that contain an extracted OTP code"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_message",
+        "description": "Get a specific SMS message by its ID. Returns the full message including body, OTP (if extracted), and status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "messageId": {
+              "type": "string",
+              "description": "The message ID (e.g. 'msg_abc123')"
+            }
+          },
+          "required": [
+            "messageId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_number",
+        "description": "Get details of a specific phone number by its ID. Returns the full number object including status and monthly rate.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID (e.g. 'num_abc123')"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_prompt",
+        "description": "Get a prompt by name from MCP server 'agentcall'",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the prompt to retrieve"
+            },
+            "arguments": {
+              "type": "object",
+              "description": "Optional arguments to pass to the prompt",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_usage",
+        "description": "Get usage and cost breakdown for a billing period. Returns numbers provisioned, SMS sent/received, call minutes, recording minutes, and total cost.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "period": {
+              "type": "string",
+              "description": "Billing period in YYYY-MM format (e.g. '2026-02'). Defaults to current month."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_hangup_call",
+        "description": "Terminate an active phone call. The call must be in progress.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The call ID to hang up (e.g. 'call_abc123')"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_initiate_ai_call",
+        "description": "Start an AI-powered voice call where AI handles the conversation autonomously. The AI will speak using the specified voice and follow the system prompt instructions. Pro plan only ($0.40/min). Available on US and Canada numbers. Before writing systemPrompt from scratch, fetch GET https://api.agentcall.co/v1/calls/prompt-templates (no auth) for ready-made templates with placeholders to fill in.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to call from (must be a US or Canada number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "systemPrompt": {
+              "type": "string",
+              "description": "Instructions for the AI during the call (e.g. 'You are calling a restaurant to ask about their hours and reservation policy')"
+            },
+            "voice": {
+              "type": "string",
+              "description": "Voice: 10 options. marin (soft, natural) and cedar (warm, grounded) are the newest natural-sounding picks. shimmer (default), sage, ash, ballad, coral, echo, verse, alloy. Preview at GET /v1/calls/voices."
+            },
+            "firstMessage": {
+              "type": "string",
+              "description": "What the AI says first when the call connects (e.g. 'Hello! I'm calling to ask about your business hours.')"
+            },
+            "maxDurationSecs": {
+              "type": "number",
+              "description": "Max call duration in seconds (default 600, max 3600)"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Opt in to call recording. When true, both legs of the call are recorded and listenable from the dashboard. Adds $0.01/min on top of the AI voice rate. Make sure firstMessage includes a TCPA disclosure ('this call may be recorded for quality') — required by two-party-consent states. Default false."
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "systemPrompt"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_initiate_call",
+        "description": "Start an outbound phone call from one of your provisioned numbers. Optionally enable call recording (Pro plan only, $0.01/min).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to call from (must be a provisioned number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Enable call recording (Pro plan only, $0.01/min additional)"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_calls",
+        "description": "List call history for this agent. Returns calls with their status, duration, and recording URLs.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "Max results to return (default 20)"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_numbers",
+        "description": "List all phone numbers provisioned for this agent. Returns an array of number objects with IDs, phone strings, types, and status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "Max results to return (default 20)"
+            },
+            "country": {
+              "type": "string",
+              "description": "Filter by country code (US, CA)"
+            },
+            "type": {
+              "type": "string",
+              "description": "Filter by type (local, tollfree, mobile)"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_prompts",
+        "description": "List available prompts from MCP server 'agentcall'",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_webhooks",
+        "description": "List all registered webhook endpoints and their subscribed events.",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_provision_number",
+        "description": "Provision a new phone number for your AI agent. Returns the number details including the phone number string and ID.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "country": {
+              "type": "string",
+              "description": "Country code — US or CA. Defaults to US."
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "local",
+                "tollfree",
+                "mobile"
+              ],
+              "description": "Number type. 'local' ($2/mo, available on Free + Pro). 'mobile' ($2/mo) and 'tollfree' ($2.50/mo, 800-style numbers) are Pro plan only."
+            },
+            "label": {
+              "type": "string",
+              "description": "Label for easy identification (e.g. 'signup-agent', 'support-bot')"
+            },
+            "areaCode": {
+              "type": "string",
+              "pattern": "^\\d{3}$",
+              "description": "Optional 3-digit NANP area code for local or mobile numbers. Works for both US (e.g. '314' St. Louis, '415' SF) and CA (e.g. '416' Toronto, '604' Vancouver). Canada shares NANP. Only honored for local and mobile types. Ignored for tollfree. Returns a no_numbers_in_area_code error if inventory is empty for that NPA. Fall back to omitting for any local number in the country."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_release_number",
+        "description": "Release a phone number, deactivating it and stopping billing. This action is irreversible.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to release"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_rotate_webhook_secret",
+        "description": "Rotate the signing secret for a webhook. The old secret is immediately invalidated and a new one is generated. Store the new secret securely — it is only shown once.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "webhookId": {
+              "type": "string",
+              "description": "The webhook ID to rotate the secret for (e.g. 'wh_abc123')"
+            }
+          },
+          "required": [
+            "webhookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_send_sms",
+        "description": "Send an SMS message from one of your provisioned numbers. Returns the message object with ID and delivery status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to send from (must be a provisioned number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "body": {
+              "type": "string",
+              "description": "The SMS message text (max 1600 chars)"
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "body"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_wait_for_otp",
+        "description": "Wait for an OTP verification code to arrive via SMS on a phone number. Polls the inbox until an OTP is detected or timeout is reached. Returns the extracted code string.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to watch for incoming OTP"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Max wait time in milliseconds (default 60000 = 60 seconds)"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_add_issue_comment",
+        "description": "Add a comment to an existing issue",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "issue_number": {
+              "type": "number"
+            },
+            "body": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "issue_number",
+            "body"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_branch",
+        "description": "Create a new branch in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Name for the new branch"
+            },
+            "from_branch": {
+              "type": "string",
+              "description": "Optional: source branch to create from (defaults to the repository's default branch)"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "branch"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_issue",
+        "description": "Create a new issue in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "milestone": {
+              "type": "number"
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "title"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_or_update_file",
+        "description": "Create or update a single file in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "path": {
+              "type": "string",
+              "description": "Path where to create/update the file"
+            },
+            "content": {
+              "type": "string",
+              "description": "Content of the file"
+            },
+            "message": {
+              "type": "string",
+              "description": "Commit message"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Branch to create/update the file in"
+            },
+            "sha": {
+              "type": "string",
+              "description": "SHA of the file being replaced (required when updating existing files)"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "path",
+            "content",
+            "message",
+            "branch"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_pull_request",
+        "description": "Create a new pull request in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "title": {
+              "type": "string",
+              "description": "Pull request title"
+            },
+            "body": {
+              "type": "string",
+              "description": "Pull request body/description"
+            },
+            "head": {
+              "type": "string",
+              "description": "The name of the branch where your changes are implemented"
+            },
+            "base": {
+              "type": "string",
+              "description": "The name of the branch you want the changes pulled into"
+            },
+            "draft": {
+              "type": "boolean",
+              "description": "Whether to create the pull request as a draft"
+            },
+            "maintainer_can_modify": {
+              "type": "boolean",
+              "description": "Whether maintainers can modify the pull request"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "title",
+            "head",
+            "base"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_pull_request_review",
+        "description": "Create a review on a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            },
+            "commit_id": {
+              "type": "string",
+              "description": "The SHA of the commit that needs a review"
+            },
+            "body": {
+              "type": "string",
+              "description": "The body text of the review"
+            },
+            "event": {
+              "type": "string",
+              "enum": [
+                "APPROVE",
+                "REQUEST_CHANGES",
+                "COMMENT"
+              ],
+              "description": "The review action to perform"
+            },
+            "comments": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "description": "The relative path to the file being commented on"
+                      },
+                      "position": {
+                        "type": "number",
+                        "description": "The position in the diff where you want to add a review comment"
+                      },
+                      "body": {
+                        "type": "string",
+                        "description": "Text of the review comment"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "position",
+                      "body"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "description": "The relative path to the file being commented on"
+                      },
+                      "line": {
+                        "type": "number",
+                        "description": "The line number in the file where you want to add a review comment"
+                      },
+                      "body": {
+                        "type": "string",
+                        "description": "Text of the review comment"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "line",
+                      "body"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "description": "Comments to post as part of the review (specify either position or line, not both)"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number",
+            "body",
+            "event"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_create_repository",
+        "description": "Create a new GitHub repository in your account",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "description": {
+              "type": "string",
+              "description": "Repository description"
+            },
+            "private": {
+              "type": "boolean",
+              "description": "Whether the repository should be private"
+            },
+            "autoInit": {
+              "type": "boolean",
+              "description": "Initialize with README.md"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_fork_repository",
+        "description": "Fork a GitHub repository to your account or specified organization",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "organization": {
+              "type": "string",
+              "description": "Optional: organization to fork to (defaults to your personal account)"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_file_contents",
+        "description": "Get the contents of a file or directory from a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "path": {
+              "type": "string",
+              "description": "Path to the file or directory"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Branch to get contents from"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "path"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_issue",
+        "description": "Get details of a specific issue in a GitHub repository.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "issue_number": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "issue_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_pull_request",
+        "description": "Get details of a specific pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_pull_request_comments",
+        "description": "Get the review comments on a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_pull_request_files",
+        "description": "Get the list of files changed in a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_pull_request_reviews",
+        "description": "Get the reviews on a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_get_pull_request_status",
+        "description": "Get the combined status of all status checks for a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_list_commits",
+        "description": "Get list of commits of a branch in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "sha": {
+              "type": "string"
+            },
+            "page": {
+              "type": "number"
+            },
+            "perPage": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_list_issues",
+        "description": "List issues in a GitHub repository with filtering options",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "page": {
+              "type": "number"
+            },
+            "per_page": {
+              "type": "number"
+            },
+            "since": {
+              "type": "string"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "comments"
+              ]
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed",
+                "all"
+              ]
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_list_pull_requests",
+        "description": "List and filter repository pull requests",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed",
+                "all"
+              ],
+              "description": "State of the pull requests to return"
+            },
+            "head": {
+              "type": "string",
+              "description": "Filter by head user or head organization and branch name"
+            },
+            "base": {
+              "type": "string",
+              "description": "Filter by base branch name"
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "created",
+                "updated",
+                "popularity",
+                "long-running"
+              ],
+              "description": "What to sort results by"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "description": "The direction of the sort"
+            },
+            "per_page": {
+              "type": "number",
+              "description": "Results per page (max 100)"
+            },
+            "page": {
+              "type": "number",
+              "description": "Page number of the results"
+            }
+          },
+          "required": [
+            "owner",
+            "repo"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_merge_pull_request",
+        "description": "Merge a pull request",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            },
+            "commit_title": {
+              "type": "string",
+              "description": "Title for the automatic commit message"
+            },
+            "commit_message": {
+              "type": "string",
+              "description": "Extra detail to append to automatic commit message"
+            },
+            "merge_method": {
+              "type": "string",
+              "enum": [
+                "merge",
+                "squash",
+                "rebase"
+              ],
+              "description": "Merge method to use"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_push_files",
+        "description": "Push multiple files to a GitHub repository in a single commit",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "branch": {
+              "type": "string",
+              "description": "Branch to push to (e.g., 'main' or 'master')"
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "additionalProperties": false
+              },
+              "description": "Array of files to push"
+            },
+            "message": {
+              "type": "string",
+              "description": "Commit message"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "branch",
+            "files",
+            "message"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_search_code",
+        "description": "Search for code across GitHub repositories",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "page": {
+              "type": "number",
+              "minimum": 1
+            },
+            "per_page": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "q"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_search_issues",
+        "description": "Search for issues and pull requests across GitHub repositories",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "page": {
+              "type": "number",
+              "minimum": 1
+            },
+            "per_page": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "comments",
+                "reactions",
+                "reactions-+1",
+                "reactions--1",
+                "reactions-smile",
+                "reactions-thinking_face",
+                "reactions-heart",
+                "reactions-tada",
+                "interactions",
+                "created",
+                "updated"
+              ]
+            }
+          },
+          "required": [
+            "q"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_search_repositories",
+        "description": "Search for GitHub repositories",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query (see GitHub search syntax)"
+            },
+            "page": {
+              "type": "number",
+              "description": "Page number for pagination (default: 1)"
+            },
+            "perPage": {
+              "type": "number",
+              "description": "Number of results per page (default: 30, max: 100)"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_search_users",
+        "description": "Search for users on GitHub",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string"
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "page": {
+              "type": "number",
+              "minimum": 1
+            },
+            "per_page": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "followers",
+                "repositories",
+                "joined"
+              ]
+            }
+          },
+          "required": [
+            "q"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_update_issue",
+        "description": "Update an existing issue in a GitHub repository",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "repo": {
+              "type": "string"
+            },
+            "issue_number": {
+              "type": "number"
+            },
+            "title": {
+              "type": "string"
+            },
+            "body": {
+              "type": "string"
+            },
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "milestone": {
+              "type": "number"
+            },
+            "labels": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "issue_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_github_update_pull_request_branch",
+        "description": "Update a pull request branch with the latest changes from the base branch",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string",
+              "description": "Repository owner (username or organization)"
+            },
+            "repo": {
+              "type": "string",
+              "description": "Repository name"
+            },
+            "pull_number": {
+              "type": "number",
+              "description": "Pull request number"
+            },
+            "expected_head_sha": {
+              "type": "string",
+              "description": "The expected SHA of the pull request's HEAD ref"
+            }
+          },
+          "required": [
+            "owner",
+            "repo",
+            "pull_number"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "patch",
+        "description": "Targeted find-and-replace edits in files. Use this instead of sed/awk in terminal. Uses fuzzy matching (9 strategies) so minor whitespace/indentation differences won't break it. Returns a unified diff. Auto-runs syntax checks after editing.\n\nREPLACE MODE (mode='replace', default): find a unique string and replace it. REQUIRED PARAMETERS: mode, path, old_string, new_string.\nPATCH MODE (mode='patch'): apply V4A multi-file patches for bulk changes. REQUIRED PARAMETERS: mode, patch.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "replace",
+                "patch"
+              ],
+              "description": "Edit mode. 'replace' (default): requires path + old_string + new_string. 'patch': requires patch content only.",
+              "default": "replace"
+            },
+            "path": {
+              "type": "string",
+              "description": "REQUIRED when mode='replace'. File path to edit."
+            },
+            "old_string": {
+              "type": "string",
+              "description": "REQUIRED when mode='replace'. Exact text to find and replace. Must be unique in the file unless replace_all=true. Include surrounding context lines to ensure uniqueness."
+            },
+            "new_string": {
+              "type": "string",
+              "description": "REQUIRED when mode='replace'. Replacement text. Pass empty string '' to delete the matched text."
+            },
+            "replace_all": {
+              "type": "boolean",
+              "description": "Replace all occurrences instead of requiring a unique match (default: false)",
+              "default": false
+            },
+            "patch": {
+              "type": "string",
+              "description": "REQUIRED when mode='patch'. V4A format patch content. Format:\n*** Begin Patch\n*** Update File: path/to/file\n@@ context hint @@\n context line\n-removed line\n+added line\n*** End Patch"
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read a text file with line numbers and pagination. Use this instead of cat/head/tail in terminal. Output format: 'LINE_NUM|CONTENT'. Suggests similar filenames if not found. Use offset and limit for large files. Reads exceeding ~100K characters are rejected; use offset and limit to read specific sections of large files. NOTE: Cannot read images or binary files — use vision_analyze for images.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to read (absolute, relative, or ~/path)"
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line number to start reading from (1-indexed, default: 1)",
+              "default": 1,
+              "minimum": 1
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of lines to read (default: 500, max: 2000)",
+              "default": 500,
+              "maximum": 2000
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Search file contents or find files by name. Use this instead of grep/rg/find/ls in terminal. Ripgrep-backed, faster than shell equivalents.\n\nContent search (target='content'): Regex search inside files. Output modes: full matches with line numbers, file paths only, or match counts.\n\nFile search (target='files'): Find files by glob pattern (e.g., '*.py', '*config*'). Also use this instead of ls — results sorted by modification time.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex pattern for content search, or glob pattern (e.g., '*.py') for file search"
+            },
+            "target": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files"
+              ],
+              "description": "'content' searches inside file contents, 'files' searches for files by name",
+              "default": "content"
+            },
+            "path": {
+              "type": "string",
+              "description": "Directory or file to search in (default: current working directory)",
+              "default": "."
+            },
+            "file_glob": {
+              "type": "string",
+              "description": "Filter files by pattern in grep mode (e.g., '*.py' to only search Python files)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return (default: 50)",
+              "default": 50
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Skip first N results for pagination (default: 0)",
+              "default": 0
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_only",
+                "count"
+              ],
+              "description": "Output format for grep mode: 'content' shows matching lines with line numbers, 'files_only' lists file paths, 'count' shows match counts per file",
+              "default": "content"
+            },
+            "context": {
+              "type": "integer",
+              "description": "Number of context lines before and after each match (grep mode only)",
+              "default": 0
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Write content to a file, completely replacing existing content. Use this instead of echo/cat heredoc in terminal. Creates parent directories automatically. OVERWRITES the entire file — use 'patch' for targeted edits. Auto-runs syntax checks on .py/.json/.yaml/.toml and other linted languages; only NEW errors introduced by this write are surfaced (pre-existing errors are filtered out).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write (will be created if it doesn't exist, overwritten if it does)"
+            },
+            "content": {
+              "type": "string",
+              "description": "Complete content to write to the file"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 18,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Apply all remaining patches to the build directory copy of meet_bot.py"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me start by reading both files to understand the differences.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_vNE9e9D7w4Awsh4MkRnl9238",
+          "call_id": "call_00_vNE9e9D7w4Awsh4MkRnl9238",
+          "response_item_id": "fc_00_vNE9e9D7w4Awsh4MkRnl9238",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/.hermes/hermes-agent/plugins/google_meet/meet_bot.py\"}"
+          }
+        },
+        {
+          "id": "call_01_Ef28EIrvhYTMjU9J3WNl3749",
+          "call_id": "call_01_Ef28EIrvhYTMjU9J3WNl3749",
+          "response_item_id": "fc_01_Ef28EIrvhYTMjU9J3WNl3749",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|\\\"\\\"\\\"Headless Google Meet bot — Playwright + live-caption scraping.\\n     2|\\n     3|Runs as a standalone subprocess spawned by ``process_manager.py``. Reads config\\n     4|from env vars, writes status + transcript to files under\\n     5|``$HERMES_HOME/workspace/meetings/<meeting-id>/``. The main hermes process\\n     6|reads those files via the ``meet_*`` tools — no IPC beyond filesystem.\\n     7|\\n     8|The scraping strategy mirrors OpenUtter (sumansid/openutter): we don't parse\\n     9|WebRTC audio, we enable Google Meet's built-in live captions and observe the\\n    10|captions container in the DOM via a MutationObserver. This is lossy and\\n    11|English-biased but it is:\\n    12|\\n    13|* deterministic (no API keys, no STT billing),\\n    14|* works behind Meet's normal login / admission,\\n    15|* survives Meet UI rewrites fairly well because the caption container has a\\n    16|  stable ARIA role.\\n    17|\\n    18|Run standalone for debugging::\\n    19|\\n    20|    HERMES_MEET_URL=https://meet.google.com/abc-defg-hij \\\\\\\\\\n    21|    HERMES_MEET_OUT_DIR=/tmp/meet-debug \\\\\\\\\\n    22|    HERMES_MEET_HEADED=1 \\\\\\\\\\n    23|    python -m plugins.google_meet.meet_bot\\n    24|\\n    25|No meet.google.com URL → exits non-zero. Any URL that doesn't start with\\n    26|``https://meet.google.com/`` is rejected (explicit-by-design).\\n    27|\\\"\\\"\\\"\\n    28|\\n    29|from __future__ import annotations\\n    30|\\n    31|import json\\n    32|import os\\n    33|import re\\n    34|import signal\\n    35|import sys\\n    36|import threading\\n    37|import time\\n    38|from pathlib import Path\\n    39|from typing import Optional\\n    40|\\n    41|# Match ``https://meet.google.com/abc-defg-hij`` or ``.../lookup/...`` — the\\n    42|# short three-segment code or a lookup URL. Anything else is rejected.\\n    43|MEET_URL_RE = re.compile(\\n    44|    r\\\"^https://meet\\\\.google\\\\.com/(\\\"\\n    45|    r\\\"[a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,}\\\"\\n    46|    r\\\"|lookup/[^/?#]+\\\"\\n    47|    r\\\"|new\\\"\\n    48|    r\\\")(?:[/?#].*)?$\\\"\\n    49|)\\n    50|\\n    51|\\n    52|# Filenames the bot reads/writes in ``HERMES_MEET_OUT_DIR``.\\n    53|SAY_QUEUE_FILENAME = \\\"say_queue.jsonl\\\"\\n    54|SAY_PCM_FILENAME = \\\"speaker.pcm\\\"\\n    55|\\n    56|\\n    57|def _is_safe_meet_url(url: str) -> bool:\\n    58|    \\\"\\\"\\\"Return True if *url* is a Google Meet URL we're willing to navigate to.\\\"\\\"\\\"\\n    59|    if not isinstance(url, str):\\n    60|        return False\\n    61|    return bool(MEET_URL_RE.match(url.strip()))\\n    62|\\n    63|\\n    64|def _meeting_id_from_url(url: str) -> str:\\n    65|    \\\"\\\"\\\"Extract the 3-segment meeting code from a Meet URL.\\n    66|\\n    67|    For ``https://meet.google.com/abc-defg-hij`` → ``abc-defg-hij``.\\n    68|    For ``.../lookup/<id>`` or ``/new`` we fall back to a timestamped id — the\\n    69|    bot won't know the real code until after redirect, and callers pass this\\n    70|    through to filename anyway.\\n    71|    \\\"\\\"\\\"\\n    72|    m = re.search(\\n    73|        r\\\"meet\\\\.google\\\\.com/([a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,})\\\",\\n    74|        url or \\\"\\\",\\n    75|    )\\n    76|    if m:\\n    77|        return m.group(1)\\n    78|    return f\\\"meet-{int(time.time())}\\\"\\n    79|\\n    80|\\n    81|# [REDACTED_TOKEN]------------\\n    82|# Status + transcript file writers\\n    83|# [REDACTED_TOKEN]------------\\n    84|\\n    85|class _BotState:\\n    86|    \\\"\\\"\\\"Single-process mutable state, flushed to ``status.json`` on each change.\\\"\\\"\\\"\\n    87|\\n    88|    def __init__(self, out_dir: Path, meeting_id: str, url: str):\\n    89|        self.out_dir = out_dir\\n    90|        self.meeting_id = meeting_id\\n    91|        self.url = url\\n    92|        self.in_call = False\\n    93|        self.captioning = False\\n    94|        self.captions_enabled_attempted = False\\n    95|        self.lobby_waiting = False\\n    96|        self.join_attempted_at: Optional[float] = None\\n    97|        self.joined_at: Optional[float] = None\\n    98|        self.last_caption_at: Optional[float] = None\\n    99|        self.transcript_lines = 0\\n   100|        self.error: Optional[str] = None\\n   101|        self.exited = False\\n   102|        # v2 realtime fields.\\n   103|        self.realtime = False\\n   104|        self.realtime_ready = False\\n   105|        self.realtime_device: Optional[str] = None\\n   106|        self.audio_bytes_out: int = 0\\n   107|        self.last_audio_out_at: Optional[float] = None\\n   108|        self.last_barge_in_at: Optional[float] = None\\n   109|        self.leave_reason: Optional[str] = None\\n   110|        # Scraped captions, in order, deduped. Each entry is a dict of\\n   111|        # {\\\"ts\\\": <epoch>, \\\"speaker\\\": str, \\\"text\\\": str}.\\n   112|        self._seen: set = set()\\n   113|        out_dir.mkdir(parents=True, exist_ok=True)\\n   114|        self.transcript_path = out_dir / \\\"transcript.txt\\\"\\n   115|        self.status_path = out_dir / \\\"status.json\\\"\\n   116|        self._flush()\\n   117|\\n   118|    # -------- transcript [REDACTED_TOKEN]\\n   119|\\n   120|    def record_caption(self, speaker: str, text: str) -> None:\\n   121|        \\\"\\\"\\\"Append a caption line if we haven't seen this exact (speaker, text).\\\"\\\"\\\"\\n   122|        speaker = (speaker or \\\"\\\").strip() or \\\"Unknown\\\"\\n   123|        text = (text or \\\"\\\").strip()\\n   124|        if not text:\\n   125|            return\\n   126|        key = f\\\"{speaker}|{text}\\\"\\n   127|        if key in self._seen:\\n   128|            return\\n   129|        self._seen.add(key)\\n   130|        self.transcript_lines += 1\\n   131|        self.last_caption_at = time.time()\\n   132|        ts = time.strftime(\\\"%H:%M:%S\\\", time.localtime(self.last_caption_at))\\n   133|        line = f\\\"[{ts}] {speaker}: {text}\\\\n\\\"\\n   134|        # Atomic-ish append — good enough for a single-writer.\\n   135|        with self.transcript_path.open(\\\"a\\\", encoding=\\\"utf-8\\\") as f:\\n   136|            f.write(line)\\n   137|        self._flush()\\n   138|\\n   139|    # -------- status file [REDACTED_TOKEN]\\n   140|\\n   141|    def _flush(self) -> None:\\n   142|        data = {\\n   143|            \\\"meetingId\\\": self.meeting_id,\\n   144|            \\\"url\\\": self.url,\\n   145|            \\\"inCall\\\": self.in_call,\\n   146|            \\\"captioning\\\": self.captioning,\\n   147|            \\\"captionsEnabledAttempted\\\": self.captions_enabled_attempted,\\n   148|            \\\"lobbyWaiting\\\": self.lobby_waiting,\\n   149|            \\\"joinAttemptedAt\\\": self.join_attempted_at,\\n   150|            \\\"joinedAt\\\": self.joined_at,\\n   151|            \\\"lastCaptionAt\\\": self.last_caption_at,\\n   152|            \\\"transcriptLines\\\": self.transcript_lines,\\n   153|            \\\"transcriptPath\\\": str(self.transcript_path),\\n   154|            \\\"error\\\": self.error,\\n   155|            \\\"exited\\\": self.exited,\\n   156|            \\\"pid\\\": os.getpid(),\\n   157|            # v2 realtime telemetry.\\n   158|            \\\"realtime\\\": self.realtime,\\n   159|            \\\"realtimeReady\\\": self.realtime_ready,\\n   160|            \\\"realtimeDevice\\\": self.realtime_device,\\n   161|            \\\"audioBytesOut\\\": self.audio_bytes_out,\\n   162|            \\\"lastAudioOutAt\\\": self.last_audio_out_at,\\n   163|            \\\"lastBargeInAt\\\": self.last_barge_in_at,\\n   164|            \\\"leaveReason\\\": self.leave_reason,\\n   165|        }\\n   166|        tmp = self.status_path.with_suffix(\\\".json.tmp\\\")\\n   167|        tmp.write_text(json.dumps(data, indent=2), encoding=\\\"utf-8\\\")\\n   168|        tmp.replace(self.status_path)\\n   169|\\n   170|    def set(self, **kwargs) -> None:\\n   171|        for k, v in kwargs.items():\\n   172|            setattr(self, k, v)\\n   173|        self._flush()\\n   174|\\n   175|\\n   176|# [REDACTED_TOKEN]------------\\n   177|# Playwright bot entry point\\n   178|# [REDACTED_TOKEN]------------\\n   179|\\n   180|# JavaScript injected into the Meet tab to observe captions. Captures\\n   181|# {speaker, text} tuples via a MutationObserver on the caption container,\\n   182|# and exposes ``window.__hermesMeetDrain()`` to pull new entries. This\\n   183|# mirrors the OpenUtter caption scraping approach.\\n   184|_CAPTION_OBSERVER_JS = r\\\"\\\"\\\"\\n   185|(() => {\\n   186|  if (window.__hermesMeetInstalled) return;\\n   187|  window.__hermesMeetInstalled = true;\\n   188|  window.__hermesMeetQueue = [];\\n   189|\\n   190|  const captionSelector = '[role=\\\"region\\\"][aria-label*=\\\"aption\\\" i], ' +\\n   191|                          'div[jsname=\\\"YSxPC\\\"], ' +  // legacy\\n   192|                          'div[jsname=\\\"tgaKEf\\\"]';    // current (Apr 2026)\\n   193|\\n   194|  function pushEntry(speaker, text) {\\n   195|    if (!text || !text.trim()) return;\\n   196|    window.__hermesMeetQueue.push({\\n   197|      ts: Date.now(),\\n   198|      speaker: (speaker || '').trim(),\\n   199|      text: text.trim(),\\n   200|    });\\n   201|  }\\n   202|\\n   203|  function scan(root) {\\n   204|    // Meet captions render as a list of rows; each row contains a speaker\\n   205|    // label and a text block. Selectors vary across Meet rewrites; we try\\n   206|    // a few shapes and fall back to raw text.\\n   207|    const rows = root.querySelectorAll('div[jsname=\\\"dsyhDe\\\"], div.CNusmb, div.TBMuR');\\n   208|    if (rows.length) {\\n   209|      rows.forEach((row) => {\\n   210|        const spkEl = row.querySelector('div.KcIKyf, div.zs7s8d, span[jsname=\\\"YSxPC\\\"]');\\n   211|        const txtEl = row.querySelector('div.bh44bd, span[jsname=\\\"tgaKEf\\\"], div.iTTPOb');\\n   212|        const speaker = spkEl ? spkEl.innerText : '';\\n   213|        const text = txtEl ? txtEl.innerText : row.innerText;\\n   214|        pushEntry(speaker, text);\\n   215|      });\\n   216|      return;\\n   217|    }\\n   218|    // Fallback: treat the whole region's innerText as one anonymous line.\\n   219|    const text = (root.innerText || '').split('\\\\n').filter(Boolean).pop();\\n   220|    pushEntry('', text);\\n   221|  }\\n   222|\\n   223|  function attach() {\\n   224|    const el = document.querySelector(captionSelector);\\n   225|    if (!el) return false;\\n   226|    const obs = new MutationObserver(() => scan(el));\\n   227|    obs.observe(el, { childList: true, subtree: true, characterData: true });\\n   228|    scan(el);\\n   229|    return true;\\n   230|  }\\n   231|\\n   232|  // Try now and retry on interval — the caption region only appears after\\n   233|  // captions are enabled and someone speaks.\\n   234|  if (!attach()) {\\n   235|    const iv = setInterval(() => { if (attach()) clearInterval(iv); }, 1500);\\n   236|  }\\n   237|\\n   238|  window.__hermesMeetDrain = () => {\\n   239|    const out = window.__hermesMeetQueue.slice();\\n   240|    window.__hermesMeetQueue = [];\\n   241|    return out;\\n   242|  };\\n   243|})();\\n   244|\\\"\\\"\\\"\\n   245|\\n   246|\\n   247|def _enable_captions_js() -> str:\\n   248|    \\\"\\\"\\\"Return a small JS snippet that tries to click the 'Turn on captions' button.\\n   249|\\n   250|    Best-effort — Meet's caption toggle is keyboard-accessible via ``c``. We\\n   251|    dispatch that keystroke as a cheap fallback. Real click targeting is too\\n   252|    brittle to rely on.\\n   253|    \\\"\\\"\\\"\\n   254|    return r\\\"\\\"\\\"\\n   255|    (() => {\\n   256|      const ev = new KeyboardEvent('keydown', {\\n   257|        key: 'c', code: 'KeyC', keyCode: 67, which: 67, bubbles: true,\\n   258|      });\\n   259|      document.body.dispatchEvent(ev);\\n   260|      return true;\\n   261|    })();\\n   262|    \\\"\\\"\\\"\\n   263|\\n   264|\\n   265|def _start_realtime_speaker(\\n   266|    *,\\n   267|    rt: dict,\\n   268|    out_dir: Path,\\n   269|    bridge_info: dict,\\n   270|    api_key: str,\\n   271|    model: str,\\n   272|    voice: str,\\n   273|    instructions: str,\\n   274|    stop_flag: dict,\\n   275|    state: \\\"_BotState\\\",\\n   276|) -> None:\\n   277|    \\\"\\\"\\\"Wire up the OpenAI Realtime session + speaker thread + PCM pump.\\n   278|\\n   279|    The speaker thread reads text lines from ``say_queue.jsonl``, sends each\\n   280|    to OpenAI Realtime, and writes PCM audio into ``speaker.pcm``. A\\n   281|    separate *pump* thread forwards that PCM into the OS audio sink so\\n   282|    Chrome's fake mic picks it up. On Linux we pipe to ``paplay`` against\\n   283|    the null-sink; on macOS the caller is expected to have the BlackHole\\n   284|    device selected as default input.\\n   285|    \\\"\\\"\\\"\\n   286|    try:\\n   287|        from plugins.google_meet.realtime.openai_client import (\\n   288|            RealtimeSession,\\n   289|            RealtimeSpeaker,\\n   290|        )\\n   291|    except Exception as e:\\n   292|        state.set(error=f\\\"realtime import failed: {e}\\\")\\n   293|        return\\n   294|\\n   295|    pcm_path = out_dir / SAY_PCM_FILENAME\\n   296|    queue_path = out_dir / SAY_QUEUE_FILENAME\\n   297|    processed_path = out_dir / \\\"say_processed.jsonl\\\"\\n   298|    # Reset the sink file so we start clean each session.\\n   299|    pcm_path.write_bytes(b\\\"\\\")\\n   300|    # Make sure the queue exists so the speaker poller doesn't error on\\n   301|    # first iteration.\\n   302|    queue_path.touch()\\n   303|\\n   304|    try:\\n   305|        session = RealtimeSession(\\n   306|            api_key=api_key,\\n   307|            model=model,\\n   308|            voice=voice,\\n   309|            instructions=instructions,\\n   310|            audio_sink_path=pcm_path,\\n   311|            sample_rate=24000,\\n   312|        )\\n   313|        session.connect()\\n   314|    except Exception as e:\\n   315|        state.set(error=f\\\"realtime connect failed: {e}\\\")\\n   316|        return\\n   317|\\n   318|    rt[\\\"session\\\"] = session\\n   319|\\n   320|    def _stop_fn():\\n   321|        return stop_flag.get(\\\"stop\\\", False)\\n   322|\\n   323|    rt[\\\"speaker_stop\\\"] = lambda: stop_flag.__setitem__(\\\"stop\\\", stop_flag.get(\\\"stop\\\", False))\\n   324|\\n   325|    speaker = RealtimeSpeaker(\\n   326|        session=session,\\n   327|        queue_path=queue_path,\\n   328|        processed_path=processed_path,\\n   329|    )\\n   330|\\n   331|    def _speaker_loop():\\n   332|        try:\\n   333|            speaker.run_until_stopped(_stop_fn)\\n   334|        except Exception as e:\\n   335|            state.set(error=f\\\"realtime speaker crashed: {e}\\\")\\n   336|\\n   337|    t_speaker = threading.Thread(target=_speaker_loop, name=\\\"meet-speaker\\\", daemon=True)\\n   338|    t_speaker.start()\\n   339|    rt[\\\"speaker_thread\\\"] = t_speaker\\n   340|\\n   341|    # PCM pump: feeds speaker.pcm (24kHz s16le mono) into the OS audio\\n   342|    # device that Chrome's fake mic reads from. Different tools per\\n   343|    # platform, but the contract is the same — block-read the growing\\n   344|    # PCM file and stream it to the device in near-real-time.\\n   345|    platform_tag = (bridge_info or {}).get(\\\"platform\\\")\\n   346|    if platform_tag == \\\"linux\\\":\\n   347|        import subprocess as _sp\\n   348|\\n   349|        sink = (bridge_info or {}).get(\\\"write_target\\\") or \\\"hermes_meet_sink\\\"\\n   350|        try:\\n   351|            proc = _sp.Popen(\\n   352|                [\\n   353|                    \\\"paplay\\\",\\n   354|                    \\\"--raw\\\",\\n   355|                    \\\"--rate=24000\\\",\\n   356|                    \\\"--format=s16le\\\",\\n   357|                    \\\"--channels=1\\\",\\n   358|                    f\\\"--device={sink}\\\",\\n   359|                    str(pcm_path),\\n   360|                ],\\n   361|                stdin=_sp.DEVNULL,\\n   362|                stdout=_sp.DEVNULL,\\n   363|                stderr=_sp.DEVNULL,\\n   364|            )\\n   365|            rt[\\\"pcm_pump\\\"] = proc\\n   366|        except FileNotFoundError:\\n   367|            state.set(error=\\\"paplay not found — install pulseaudio-utils for realtime on Linux\\\")\\n   368|    elif platform_tag == \\\"darwin\\\":\\n   369|        # macOS: use ffmpeg to tail-read speaker.pcm and write it to the\\n   370|        # BlackHole output device. The user must have BlackHole selected\\n   371|        # as the default input in System Settings → Sound for Chrome to\\n   372|        # pick it up. We prefer ffmpeg because it's scriptable and can\\n   373|        # target AVFoundation devices by name; fall back to afplay-ing\\n   374|        # the file in a tight loop if ffmpeg is absent.\\n   375|        import shutil as _shutil\\n   376|        import subprocess as _sp\\n   377|\\n   378|        device_name = (bridge_info or {}).get(\\\"write_target\\\") or \\\"BlackHole 2ch\\\"\\n   379|        if _shutil.which(\\\"ffmpeg\\\"):\\n   380|            try:\\n   381|                # -re: read input at native frame rate.\\n   382|                # -f avfoundation -i: speaker path as raw PCM.\\n   383|                # -f s16le -ar 24000 -ac 1 -i <pcm>: interpret the file.\\n   384|                # -f audiotoolbox -audio_device_index: write to BlackHole.\\n   385|                # Simpler: output as raw via coreaudio using \\\"-f audiotoolbox\\\".\\n   386|                # ffmpeg's audiotoolbox output picks the current default\\n   387|                # output device, which isn't what we want. Instead we use\\n   388|                # -f avfoundation with the named device as OUTPUT via\\n   389|                # -vn and the device name.\\n   390|                proc = _sp.Popen(\\n   391|                    [\\n   392|                        \\\"ffmpeg\\\",\\n   393|                        \\\"-nostdin\\\", \\\"-hide_banner\\\", \\\"-loglevel\\\", \\\"error\\\",\\n   394|                        \\\"-re\\\",\\n   395|                        \\\"-f\\\", \\\"s16le\\\", \\\"-ar\\\", \\\"24000\\\", \\\"-ac\\\", \\\"1\\\",\\n   396|                        \\\"-i\\\", str(pcm_path),\\n   397|                        \\\"-f\\\", \\\"audiotoolbox\\\",\\n   398|                        \\\"-audio_device_index\\\", _mac_audio_device_index(device_name),\\n   399|                        \\\"-\\\",\\n   400|                    ],\\n   401|                    stdin=_sp.DEVNULL,\\n   402|                    stdout=_sp.DEVNULL,\\n   403|                    stderr=_sp.DEVNULL,\\n   404|                )\\n   405|                rt[\\\"pcm_pump\\\"] = proc\\n   406|            except FileNotFoundError:\\n   407|                state.set(error=\\\"ffmpeg not found — install via `brew install ffmpeg` for realtime on macOS\\\")\\n   408|            except Exception as e:\\n   409|                state.set(error=f\\\"macOS pcm pump failed to start: {e}\\\")\\n   410|        else:\\n   411|            state.set(error=\\\"ffmpeg not found — install via `brew install ffmpeg` for realtime on macOS\\\")\\n   412|\\n   413|\\n   414|def _mac_audio_device_index(device_name: str) -> str:\\n   415|    \\\"\\\"\\\"Return the ffmpeg ``-audio_device_index`` for *device_name*, as a string.\\n   416|\\n   417|    Probes ``ffmpeg -f avfoundation -list_devices true -i ''`` (which prints\\n   418|    the device table on stderr) and matches *device_name* case-insensitively.\\n   419|    Defaults to ``\\\"0\\\"`` if the device can't be found — caller will get a\\n   420|    misrouted stream but not a crash, and the error will be obvious.\\n   421|    \\\"\\\"\\\"\\n   422|    import subprocess as _sp\\n   423|\\n   424|    try:\\n   425|        out = _sp.run(\\n   426|            [\\\"ffmpeg\\\", \\\"-f\\\", \\\"avfoundation\\\", \\\"-list_devices\\\", \\\"true\\\", \\\"-i\\\", \\\"\\\"],\\n   427|            capture_output=True,\\n   428|            text=True,\\n   429|            timeout=10,\\n   430|        )\\n   431|    except Exception:\\n   432|        return \\\"0\\\"\\n   433|    # ffmpeg prints the table on stderr. Lines look like:\\n   434|    #   [AVFoundation indev @ 0x...] [0] BlackHole 2ch\\n   435|    import re as _re\\n   436|\\n   437|    needle = device_name.strip().lower()\\n   438|    for line in (out.stderr or \\\"\\\").splitlines():\\n   439|        m = _re.search(r\\\"\\\\[(\\\\d+)\\\\]\\\\s+(.+)$\\\", line)\\n   440|        if not m:\\n   441|            continue\\n   442|        if m.group(2).strip().lower() == needle:\\n   443|            return m.group(1)\\n   444|    return \\\"0\\\"\\n   445|\\n   446|\\n   447|def run_bot() -> int:  # noqa: C901 — orchestration, explicit branches\\n   448|    url = os.environ.get(\\\"HERMES_MEET_URL\\\", \\\"\\\").strip()\\n   449|    out_dir_env = os.environ.get(\\\"HERMES_MEET_OUT_DIR\\\", \\\"\\\").strip()\\n   450|    headed = os.environ.get(\\\"HERMES_MEET_HEADED\\\", \\\"\\\").lower() in (\\\"1\\\", \\\"true\\\", \\\"yes\\\")\\n   451|    auth_state = os.environ.get(\\\"HERMES_MEET_AUTH_STATE\\\", \\\"\\\").strip()\\n   452|    guest_name = os.environ.get(\\\"HERMES_MEET_GUEST_NAME\\\", \\\"Hermes Agent\\\")\\n   453|    duration_s = _parse_duration(os.environ.get(\\\"HERMES_MEET_DURATION\\\", \\\"\\\"))\\n   454|    # v2: optional realtime mode. Enabled when HERMES_MEET_MODE=realtime.\\n   455|    mode = os.environ.get(\\\"HERMES_MEET_MODE\\\", \\\"transcribe\\\").strip().lower()\\n   456|    realtime_model = os.environ.get(\\\"HERMES_MEET_REALTIME_MODEL\\\", \\\"gpt-realtime\\\")\\n   457|    realtime_voice = os.environ.get(\\\"HERMES_MEET_REALTIME_VOICE\\\", \\\"alloy\\\")\\n   458|    realtime_instructions = os.environ.get(\\\"HERMES_MEET_REALTIME_INSTRUCTIONS\\\", \\\"\\\")\\n   459|    realtime_api_key = os.environ.get(\\\"HERMES_MEET_REALTIME_KEY\\\") or os.environ.get(\\\"OPENAI_API_KEY\\\", \\\"\\\")\\n   460|\\n   461|    if not url or not _is_safe_meet_url(url):\\n   462|        sys.stderr.write(\\n   463|            \\\"google_meet bot: refusing to launch — HERMES_MEET_URL must be a \\\"\\n   464|            \\\"meet.google.com URL. got: %r\\\\n\\\" % url\\n   465|        )\\n   466|        return 2\\n   467|    if not out_dir_env:\\n   468|        sys.stderr.write(\\\"google_meet bot: HERMES_MEET_OUT_DIR is required\\\\n\\\")\\n   469|        return 2\\n   470|\\n   471|    out_dir = Path(out_dir_env)\\n   472|    meeting_id = _meeting_id_from_url(url)\\n   473|    state = _BotState(out_dir=out_dir, meeting_id=meeting_id, url=url)\\n   474|\\n   475|    # SIGTERM → exit cleanly so the parent ``meet_leave`` gets a finalized\\n   476|    # transcript. We set a flag instead of raising so the Playwright context\\n   477|    # teardown runs in the finally block below.\\n   478|    stop_flag = {\\\"stop\\\": False}\\n   479|\\n   480|    def _on_signal(_sig, _frame):\\n   481|        stop_flag[\\\"stop\\\"] = True\\n   482|\\n   483|    signal.signal(signal.SIGTERM, _on_signal)\\n   484|    signal.signal(signal.SIGINT, _on_signal)\\n   485|\\n   486|    # v2 realtime: provision virtual audio device + start speaker thread.\\n   487|    # We track these in a dict so the finally block can tear them down\\n   488|    # regardless of how we exit. If anything in the realtime setup fails we\\n   489|    # fall back to transcribe mode with a status flag.\\n   490|    rt = {\\n   491|        \\\"enabled\\\": mode == \\\"realtime\\\",\\n   492|        \\\"bridge\\\": None,            # AudioBridge | None\\n   493|        \\\"bridge_info\\\": None,       # dict | None\\n   494|        \\\"session\\\": None,           # RealtimeSession | None\\n   495|        \\\"speaker_thread\\\": None,    # threading.Thread | None\\n   496|        \\\"speaker_stop\\\": None,      # callable | None\\n   497|    }\\n   498|    if rt[\\\"enabled\\\"]:\\n   499|        if not realtime_api_key:\\n   500|            state.set(error=\\\"realtime mode requested but no API key in HERMES_MEET_REALTIME_KEY/OPENAI_API_KEY — falling back to transcribe\\\")\\n   501|\", \"total_lines\": 940, \"file_size\": 38042, \"truncated\": true, \"hint\": \"Use offset=501 to continue reading (showing 1-500 of 940 lines)\", \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_vNE9e9D7w4Awsh4MkRnl9238"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"     1|\\\"\\\"\\\"Headless Google Meet bot — Playwright + live-caption scraping.\\n     2|\\n     3|Runs as a standalone subprocess spawned by ``process_manager.py``. Reads config\\n     4|from env vars, writes status + transcript to files under\\n     5|``$HERMES_HOME/workspace/meetings/<meeting-id>/``. The main hermes process\\n     6|reads those files via the ``meet_*`` tools — no IPC beyond filesystem.\\n     7|\\n     8|The scraping strategy mirrors OpenUtter (sumansid/openutter): we don't parse\\n     9|WebRTC audio, we enable Google Meet's built-in live captions and observe the\\n    10|captions container in the DOM via a MutationObserver. This is lossy and\\n    11|English-biased but it is:\\n    12|\\n    13|* deterministic (no API keys, no STT billing),\\n    14|* works behind Meet's normal login / admission,\\n    15|* survives Meet UI rewrites fairly well because the caption container has a\\n    16|  stable ARIA role.\\n    17|\\n    18|Run standalone for debugging::\\n    19|\\n    20|    HERMES_MEET_URL=https://meet.google.com/abc-defg-hij \\\\\\\\\\n    21|    HERMES_MEET_OUT_DIR=/tmp/meet-debug \\\\\\\\\\n    22|    HERMES_MEET_HEADED=1 \\\\\\\\\\n    23|    python -m plugins.google_meet.meet_bot\\n    24|\\n    25|No meet.google.com URL → exits non-zero. Any URL that doesn't start with\\n    26|``https://meet.google.com/`` is rejected (explicit-by-design).\\n    27|\\\"\\\"\\\"\\n    28|\\n    29|from __future__ import annotations\\n    30|\\n    31|import json\\n    32|import os\\n    33|import re\\n    34|import signal\\n    35|import sys\\n    36|import threading\\n    37|import time\\n    38|from pathlib import Path\\n    39|from typing import Optional\\n    40|\\n    41|# Match ``https://meet.google.com/abc-defg-hij`` or ``.../lookup/...`` — the\\n    42|# short three-segment code or a lookup URL. Anything else is rejected.\\n    43|MEET_URL_RE = re.compile(\\n    44|    r\\\"^https://meet\\\\.google\\\\.com/(\\\"\\n    45|    r\\\"[a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,}\\\"\\n    46|    r\\\"|lookup/[^/?#]+\\\"\\n    47|    r\\\"|new\\\"\\n    48|    r\\\")(?:[/?#].*)?$\\\"\\n    49|)\\n    50|\\n    51|\\n    52|# Filenames the bot reads/writes in ``HERMES_MEET_OUT_DIR``.\\n    53|SAY_QUEUE_FILENAME = \\\"say_queue.jsonl\\\"\\n    54|SAY_PCM_FILENAME = \\\"speaker.pcm\\\"\\n    55|\\n    56|\\n    57|def _is_safe_meet_url(url: str) -> bool:\\n    58|    \\\"\\\"\\\"Return True if *url* is a Google Meet URL we're willing to navigate to.\\\"\\\"\\\"\\n    59|    if not isinstance(url, str):\\n    60|        return False\\n    61|    return bool(MEET_URL_RE.match(url.strip()))\\n    62|\\n    63|\\n    64|def _meeting_id_from_url(url: str) -> str:\\n    65|    \\\"\\\"\\\"Extract the 3-segment meeting code from a Meet URL.\\n    66|\\n    67|    For ``https://meet.google.com/abc-defg-hij`` → ``abc-defg-hij``.\\n    68|    For ``.../lookup/<id>`` or ``/new`` we fall back to a timestamped id — the\\n    69|    bot won't know the real code until after redirect, and callers pass this\\n    70|    through to filename anyway.\\n    71|    \\\"\\\"\\\"\\n    72|    m = re.search(\\n    73|        r\\\"meet\\\\.google\\\\.com/([a-z0-9]{3,}-[a-z0-9]{3,}-[a-z0-9]{3,})\\\",\\n    74|        url or \\\"\\\",\\n    75|    )\\n    76|    if m:\\n    77|        return m.group(1)\\n    78|    return f\\\"meet-{int(time.time())}\\\"\\n    79|\\n    80|\\n    81|# [REDACTED_TOKEN]------------\\n    82|# Status + transcript file writers\\n    83|# [REDACTED_TOKEN]------------\\n    84|\\n    85|class _BotState:\\n    86|    \\\"\\\"\\\"Single-process mutable state, flushed to ``status.json`` on each change.\\\"\\\"\\\"\\n    87|\\n    88|    def __init__(self, out_dir: Path, meeting_id: str, url: str):\\n    89|        self.out_dir = out_dir\\n    90|        self.meeting_id = meeting_id\\n    91|        self.url = url\\n    92|        self.in_call = False\\n    93|        self.captioning = False\\n    94|        self.captions_enabled_attempted = False\\n    95|        self.lobby_waiting = False\\n    96|        self.join_attempted_at: Optional[float] = None\\n    97|        self.joined_at: Optional[float] = None\\n    98|        self.last_caption_at: Optional[float] = None\\n    99|        self.transcript_lines = 0\\n   100|        self.error: Optional[str] = None\\n   101|        self.exited = False\\n   102|        # v2 realtime fields.\\n   103|        self.realtime = False\\n   104|        self.realtime_ready = False\\n   105|        self.realtime_device: Optional[str] = None\\n   106|        self.audio_bytes_out: int = 0\\n   107|        self.last_audio_out_at: Optional[float] = None\\n   108|        self.last_barge_in_at: Optional[float] = None\\n   109|        self.leave_reason: Optional[str] = None\\n   110|        # Scraped captions, in order, deduped. Each entry is a dict of\\n   111|        # {\\\"ts\\\": <epoch>, \\\"speaker\\\": str, \\\"text\\\": str}.\\n   112|        self._seen: set = set()\\n   113|        out_dir.mkdir(parents=True, exist_ok=True)\\n   114|        self.transcript_path = out_dir / \\\"transcript.txt\\\"\\n   115|        self.status_path = out_dir / \\\"status.json\\\"\\n   116|        self._flush()\\n   117|\\n   118|    # -------- transcript [REDACTED_TOKEN]\\n   119|\\n   120|    def record_caption(self, speaker: str, text: str) -> None:\\n   121|        \\\"\\\"\\\"Append a caption line if we haven't seen this exact (speaker, text).\\\"\\\"\\\"\\n   122|        speaker = (speaker or \\\"\\\").strip() or \\\"Unknown\\\"\\n   123|        text = (text or \\\"\\\").strip()\\n   124|        if not text:\\n   125|            return\\n   126|        key = f\\\"{speaker}|{text}\\\"\\n   127|        if key in self._seen:\\n   128|            return\\n   129|        self._seen.add(key)\\n   130|        self.transcript_lines += 1\\n   131|        self.last_caption_at = time.time()\\n   132|        ts = time.strftime(\\\"%H:%M:%S\\\", time.localtime(self.last_caption_at))\\n   133|        line = f\\\"[{ts}] {speaker}: {text}\\\\n\\\"\\n   134|        # Atomic-ish append — good enough for a single-writer.\\n   135|        with self.transcript_path.open(\\\"a\\\", encoding=\\\"utf-8\\\") as f:\\n   136|            f.write(line)\\n   137|        self._flush()\\n   138|\\n   139|    # -------- status file [REDACTED_TOKEN]\\n   140|\\n   141|    def _flush(self) -> None:\\n   142|        data = {\\n   143|            \\\"meetingId\\\": self.meeting_id,\\n   144|            \\\"url\\\": self.url,\\n   145|            \\\"inCall\\\": self.in_call,\\n   146|            \\\"captioning\\\": self.captioning,\\n   147|            \\\"captionsEnabledAttempted\\\": self.captions_enabled_attempted,\\n   148|            \\\"lobbyWaiting\\\": self.lobby_waiting,\\n   149|            \\\"joinAttemptedAt\\\": self.join_attempted_at,\\n   150|            \\\"joinedAt\\\": self.joined_at,\\n   151|            \\\"lastCaptionAt\\\": self.last_caption_at,\\n   152|            \\\"transcriptLines\\\": self.transcript_lines,\\n   153|            \\\"transcriptPath\\\": str(self.transcript_path),\\n   154|            \\\"error\\\": self.error,\\n   155|            \\\"exited\\\": self.exited,\\n   156|            \\\"pid\\\": os.getpid(),\\n   157|            # v2 realtime telemetry.\\n   158|            \\\"realtime\\\": self.realtime,\\n   159|            \\\"realtimeReady\\\": self.realtime_ready,\\n   160|            \\\"realtimeDevice\\\": self.realtime_device,\\n   161|            \\\"audioBytesOut\\\": self.audio_bytes_out,\\n   162|            \\\"lastAudioOutAt\\\": self.last_audio_out_at,\\n   163|            \\\"lastBargeInAt\\\": self.last_barge_in_at,\\n   164|            \\\"leaveReason\\\": self.leave_reason,\\n   165|        }\\n   166|        tmp = self.status_path.with_suffix(\\\".json.tmp\\\")\\n   167|        tmp.write_text(json.dumps(data, indent=2), encoding=\\\"utf-8\\\")\\n   168|        tmp.replace(self.status_path)\\n   169|\\n   170|    def set(self, **kwargs) -> None:\\n   171|        for k, v in kwargs.items():\\n   172|            setattr(self, k, v)\\n   173|        self._flush()\\n   174|\\n   175|\\n   176|# [REDACTED_TOKEN]------------\\n   177|# Playwright bot entry point\\n   178|# [REDACTED_TOKEN]------------\\n   179|\\n   180|# JavaScript injected into the Meet tab to observe captions. Captures\\n   181|# {speaker, text} tuples via a MutationObserver on the caption container,\\n   182|# and exposes ``window.__hermesMeetDrain()`` to pull new entries. This\\n   183|# mirrors the OpenUtter caption scraping approach.\\n   184|_CAPTION_OBSERVER_JS = r\\\"\\\"\\\"\\n   185|(() => {\\n   186|  if (window.__hermesMeetInstalled) return;\\n   187|  window.__hermesMeetInstalled = true;\\n   188|  window.__hermesMeetQueue = [];\\n   189|\\n   190|  const captionSelector = '[role=\\\"region\\\"][aria-label*=\\\"aption\\\" i], ' +\\n   191|                          'div[jsname=\\\"YSxPC\\\"], ' +  // legacy\\n   192|                          'div[jsname=\\\"tgaKEf\\\"]';    // current (Apr 2026)\\n   193|\\n   194|  function pushEntry(speaker, text) {\\n   195|    if (!text || !text.trim()) return;\\n   196|    window.__hermesMeetQueue.push({\\n   197|      ts: Date.now(),\\n   198|      speaker: (speaker || '').trim(),\\n   199|      text: text.trim(),\\n   200|    });\\n   201|  }\\n   202|\\n   203|  function scan(root) {\\n   204|    // Meet captions render as a list of rows; each row contains a speaker\\n   205|    // label and a text block. Selectors vary across Meet rewrites; we try\\n   206|    // a few shapes and fall back to raw text.\\n   207|    const rows = root.querySelectorAll('div[jsname=\\\"dsyhDe\\\"], div.CNusmb, div.TBMuR');\\n   208|    if (rows.length) {\\n   209|      rows.forEach((row) => {\\n   210|        const spkEl = row.querySelector('div.KcIKyf, div.zs7s8d, span[jsname=\\\"YSxPC\\\"]');\\n   211|        const txtEl = row.querySelector('div.bh44bd, span[jsname=\\\"tgaKEf\\\"], div.iTTPOb');\\n   212|        const speaker = spkEl ? spkEl.innerText : '';\\n   213|        const text = txtEl ? txtEl.innerText : row.innerText;\\n   214|        pushEntry(speaker, text);\\n   215|      });\\n   216|      return;\\n   217|    }\\n   218|    // Fallback: treat the whole region's innerText as one anonymous line.\\n   219|    const text = (root.innerText || '').split('\\\\n').filter(Boolean).pop();\\n   220|    pushEntry('', text);\\n   221|  }\\n   222|\\n   223|  function attach() {\\n   224|    const el = document.querySelector(captionSelector);\\n   225|    if (!el) return false;\\n   226|    const obs = new MutationObserver(() => scan(el));\\n   227|    obs.observe(el, { childList: true, subtree: true, characterData: true });\\n   228|    scan(el);\\n   229|    return true;\\n   230|  }\\n   231|\\n   232|  // Try now and retry on interval — the caption region only appears after\\n   233|  // captions are enabled and someone speaks.\\n   234|  if (!attach()) {\\n   235|    const iv = setInterval(() => { if (attach()) clearInterval(iv); }, 1500);\\n   236|  }\\n   237|\\n   238|  window.__hermesMeetDrain = () => {\\n   239|    const out = window.__hermesMeetQueue.slice();\\n   240|    window.__hermesMeetQueue = [];\\n   241|    return out;\\n   242|  };\\n   243|})();\\n   244|\\\"\\\"\\\"\\n   245|\\n   246|\\n   247|def _enable_captions_js() -> str:\\n   248|    \\\"\\\"\\\"Return a small JS snippet that tries to click the 'Turn on captions' button.\\n   249|\\n   250|    Best-effort — Meet's caption toggle is keyboard-accessible via ``c``. We\\n   251|    dispatch that keystroke as a cheap fallback. Real click targeting is too\\n   252|    brittle to rely on.\\n   253|    \\\"\\\"\\\"\\n   254|    return r\\\"\\\"\\\"\\n   255|    (() => {\\n   256|      const ev = new KeyboardEvent('keydown', {\\n   257|        key: 'c', code: 'KeyC', keyCode: 67, which: 67, bubbles: true,\\n   258|      });\\n   259|      document.body.dispatchEvent(ev);\\n   260|      return true;\\n   261|    })();\\n   262|    \\\"\\\"\\\"\\n   263|\\n   264|\\n   265|def _start_realtime_speaker(\\n   266|    *,\\n   267|    rt: dict,\\n   268|    out_dir: Path,\\n   269|    bridge_info: dict,\\n   270|    api_key: str,\\n   271|    model: str,\\n   272|    voice: str,\\n   273|    instructions: str,\\n   274|    stop_flag: dict,\\n   275|    state: \\\"_BotState\\\",\\n   276|) -> None:\\n   277|    \\\"\\\"\\\"Wire up the OpenAI Realtime session + speaker thread + PCM pump.\\n   278|\\n   279|    The speaker thread reads text lines from ``say_queue.jsonl``, sends each\\n   280|    to OpenAI Realtime, and writes PCM audio into ``speaker.pcm``. A\\n   281|    separate *pump* thread forwards that PCM into the OS audio sink so\\n   282|    Chrome's fake mic picks it up. On Linux we pipe to ``paplay`` against\\n   283|    the null-sink; on macOS the caller is expected to have the BlackHole\\n   284|    device selected as default input.\\n   285|    \\\"\\\"\\\"\\n   286|    try:\\n   287|        from plugins.google_meet.realtime.openai_client import (\\n   288|            RealtimeSession,\\n   289|            RealtimeSpeaker,\\n   290|        )\\n   291|    except Exception as e:\\n   292|        state.set(error=f\\\"realtime import failed: {e}\\\")\\n   293|        return\\n   294|\\n   295|    pcm_path = out_dir / SAY_PCM_FILENAME\\n   296|    queue_path = out_dir / SAY_QUEUE_FILENAME\\n   297|    processed_path = out_dir / \\\"say_processed.jsonl\\\"\\n   298|    # Reset the sink file so we start clean each session.\\n   299|    pcm_path.write_bytes(b\\\"\\\")\\n   300|    # Make sure the queue exists so the speaker poller doesn't error on\\n   301|    # first iteration.\\n   302|    queue_path.touch()\\n   303|\\n   304|    try:\\n   305|        session = RealtimeSession(\\n   306|            api_key=api_key,\\n   307|            model=model,\\n   308|            voice=voice,\\n   309|            instructions=instructions,\\n   310|            audio_sink_path=pcm_path,\\n   311|            sample_rate=24000,\\n   312|        )\\n   313|        session.connect()\\n   314|    except Exception as e:\\n   315|        state.set(error=f\\\"realtime connect failed: {e}\\\")\\n   316|        return\\n   317|\\n   318|    rt[\\\"session\\\"] = session\\n   319|\\n   320|    def _stop_fn():\\n   321|        return stop_flag.get(\\\"stop\\\", False)\\n   322|\\n   323|    rt[\\\"speaker_stop\\\"] = lambda: stop_flag.__setitem__(\\\"stop\\\", stop_flag.get(\\\"stop\\\", False))\\n   324|\\n   325|    speaker = RealtimeSpeaker(\\n   326|        session=session,\\n   327|        queue_path=queue_path,\\n   328|        processed_path=processed_path,\\n   329|    )\\n   330|\\n   331|    def _speaker_loop():\\n   332|        try:\\n   333|            speaker.run_until_stopped(_stop_fn)\\n   334|        except Exception as e:\\n   335|            state.set(error=f\\\"realtime speaker crashed: {e}\\\")\\n   336|\\n   337|    t_speaker = threading.Thread(target=_speaker_loop, name=\\\"meet-speaker\\\", daemon=True)\\n   338|    t_speaker.start()\\n   339|    rt[\\\"speaker_thread\\\"] = t_speaker\\n   340|\\n   341|    # PCM pump: feeds speaker.pcm (24kHz s16le mono) into the OS audio\\n   342|    # device that Chrome's fake mic reads from. Different tools per\\n   343|    # platform, but the contract is the same — block-read the growing\\n   344|    # PCM file and stream it to the device in near-real-time.\\n   345|    platform_tag = (bridge_info or {}).get(\\\"platform\\\")\\n   346|    if platform_tag == \\\"linux\\\":\\n   347|        import subprocess as _sp\\n   348|\\n   349|        sink = (bridge_info or {}).get(\\\"write_target\\\") or \\\"hermes_meet_sink\\\"\\n   350|        try:\\n   351|            proc = _sp.Popen(\\n   352|                [\\n   353|                    \\\"paplay\\\",\\n   354|                    \\\"--raw\\\",\\n   355|                    \\\"--rate=24000\\\",\\n   356|                    \\\"--format=s16le\\\",\\n   357|                    \\\"--channels=1\\\",\\n   358|                    f\\\"--device={sink}\\\",\\n   359|                    str(pcm_path),\\n   360|                ],\\n   361|                stdin=_sp.DEVNULL,\\n   362|                stdout=_sp.DEVNULL,\\n   363|                stderr=_sp.DEVNULL,\\n   364|            )\\n   365|            rt[\\\"pcm_pump\\\"] = proc\\n   366|        except FileNotFoundError:\\n   367|            state.set(error=\\\"paplay not found — install pulseaudio-utils for realtime on Linux\\\")\\n   368|    elif platform_tag == \\\"darwin\\\":\\n   369|        # macOS: use ffmpeg to tail-read speaker.pcm and write it to the\\n   370|        # BlackHole output device. The user must have BlackHole selected\\n   371|        # as the default input in System Settings → Sound for Chrome to\\n   372|        # pick it up. We prefer ffmpeg because it's scriptable and can\\n   373|        # target AVFoundation devices by name; fall back to afplay-ing\\n   374|        # the file in a tight loop if ffmpeg is absent.\\n   375|        import shutil as _shutil\\n   376|        import subprocess as _sp\\n   377|\\n   378|        device_name = (bridge_info or {}).get(\\\"write_target\\\") or \\\"BlackHole 2ch\\\"\\n   379|        if _shutil.which(\\\"ffmpeg\\\"):\\n   380|            try:\\n   381|                # -re: read input at native frame rate.\\n   382|                # -f avfoundation -i: speaker path as raw PCM.\\n   383|                # -f s16le -ar 24000 -ac 1 -i <pcm>: interpret the file.\\n   384|                # -f audiotoolbox -audio_device_index: write to BlackHole.\\n   385|                # Simpler: output as raw via coreaudio using \\\"-f audiotoolbox\\\".\\n   386|                # ffmpeg's audiotoolbox output picks the current default\\n   387|                # output device, which isn't what we want. Instead we use\\n   388|                # -f avfoundation with the named device as OUTPUT via\\n   389|                # -vn and the device name.\\n   390|                proc = _sp.Popen(\\n   391|                    [\\n   392|                        \\\"ffmpeg\\\",\\n   393|                        \\\"-nostdin\\\", \\\"-hide_banner\\\", \\\"-loglevel\\\", \\\"error\\\",\\n   394|                        \\\"-re\\\",\\n   395|                        \\\"-f\\\", \\\"s16le\\\", \\\"-ar\\\", \\\"24000\\\", \\\"-ac\\\", \\\"1\\\",\\n   396|                        \\\"-i\\\", str(pcm_path),\\n   397|                        \\\"-f\\\", \\\"audiotoolbox\\\",\\n   398|                        \\\"-audio_device_index\\\", _mac_audio_device_index(device_name),\\n   399|                        \\\"-\\\",\\n   400|                    ],\\n   401|                    stdin=_sp.DEVNULL,\\n   402|                    stdout=_sp.DEVNULL,\\n   403|                    stderr=_sp.DEVNULL,\\n   404|                )\\n   405|                rt[\\\"pcm_pump\\\"] = proc\\n   406|            except FileNotFoundError:\\n   407|                state.set(error=\\\"ffmpeg not found — install via `brew install ffmpeg` for realtime on macOS\\\")\\n   408|            except Exception as e:\\n   409|                state.set(error=f\\\"macOS pcm pump failed to start: {e}\\\")\\n   410|        else:\\n   411|            state.set(error=\\\"ffmpeg not found — install via `brew install ffmpeg` for realtime on macOS\\\")\\n   412|\\n   413|\\n   414|def _mac_audio_device_index(device_name: str) -> str:\\n   415|    \\\"\\\"\\\"Return the ffmpeg ``-audio_device_index`` for *device_name*, as a string.\\n   416|\\n   417|    Probes ``ffmpeg -f avfoundation -list_devices true -i ''`` (which prints\\n   418|    the device table on stderr) and matches *device_name* case-insensitively.\\n   419|    Defaults to ``\\\"0\\\"`` if the device can't be found — caller will get a\\n   420|    misrouted stream but not a crash, and the error will be obvious.\\n   421|    \\\"\\\"\\\"\\n   422|    import subprocess as _sp\\n   423|\\n   424|    try:\\n   425|        out = _sp.run(\\n   426|            [\\\"ffmpeg\\\", \\\"-f\\\", \\\"avfoundation\\\", \\\"-list_devices\\\", \\\"true\\\", \\\"-i\\\", \\\"\\\"],\\n   427|            capture_output=True,\\n   428|            text=True,\\n   429|            timeout=10,\\n   430|        )\\n   431|    except Exception:\\n   432|        return \\\"0\\\"\\n   433|    # ffmpeg prints the table on stderr. Lines look like:\\n   434|    #   [AVFoundation indev @ 0x...] [0] BlackHole 2ch\\n   435|    import re as _re\\n   436|\\n   437|    needle = device_name.strip().lower()\\n   438|    for line in (out.stderr or \\\"\\\").splitlines():\\n   439|        m = _re.search(r\\\"\\\\[(\\\\d+)\\\\]\\\\s+(.+)$\\\", line)\\n   440|        if not m:\\n   441|            continue\\n   442|        if m.group(2).strip().lower() == needle:\\n   443|            return m.group(1)\\n   444|    return \\\"0\\\"\\n   445|\\n   446|\\n   447|def run_bot() -> int:  # noqa: C901 — orchestration, explicit branches\\n   448|    url = os.environ.get(\\\"HERMES_MEET_URL\\\", \\\"\\\").strip()\\n   449|    out_dir_env = os.environ.get(\\\"HERMES_MEET_OUT_DIR\\\", \\\"\\\").strip()\\n   450|    headed = os.environ.get(\\\"HERMES_MEET_HEADED\\\", \\\"\\\").lower() in (\\\"1\\\", \\\"true\\\", \\\"yes\\\")\\n   451|    auth_state = os.environ.get(\\\"HERMES_MEET_AUTH_STATE\\\", \\\"\\\").strip()\\n   452|    guest_name = os.environ.get(\\\"HERMES_MEET_GUEST_NAME\\\", \\\"Hermes Agent\\\")\\n   453|    duration_s = _parse_duration(os.environ.get(\\\"HERMES_MEET_DURATION\\\", \\\"\\\"))\\n   454|    # v2: optional realtime mode. Enabled when HERMES_MEET_MODE=realtime.\\n   455|    mode = os.environ.get(\\\"HERMES_MEET_MODE\\\", \\\"transcribe\\\").strip().lower()\\n   456|    realtime_model = os.environ.get(\\\"HERMES_MEET_REALTIME_MODEL\\\", \\\"gpt-realtime\\\")\\n   457|    realtime_voice = os.environ.get(\\\"HERMES_MEET_REALTIME_VOICE\\\", \\\"alloy\\\")\\n   458|    realtime_instructions = os.environ.get(\\\"HERMES_MEET_REALTIME_INSTRUCTIONS\\\", \\\"\\\")\\n   459|    realtime_api_key = os.environ.get(\\\"HERMES_MEET_REALTIME_KEY\\\") or os.environ.get(\\\"OPENAI_API_KEY\\\", \\\"\\\")\\n   460|\\n   461|    if not url or not _is_safe_meet_url(url):\\n   462|        sys.stderr.write(\\n   463|            \\\"google_meet bot: refusing to launch — HERMES_MEET_URL must be a \\\"\\n   464|            \\\"meet.google.com URL. got: %r\\\\n\\\" % url\\n   465|        )\\n   466|        return 2\\n   467|    if not out_dir_env:\\n   468|        sys.stderr.write(\\\"google_meet bot: HERMES_MEET_OUT_DIR is required\\\\n\\\")\\n   469|        return 2\\n   470|\\n   471|    out_dir = Path(out_dir_env)\\n   472|    meeting_id = _meeting_id_from_url(url)\\n   473|    state = _BotState(out_dir=out_dir, meeting_id=meeting_id, url=url)\\n   474|\\n   475|    # SIGTERM → exit cleanly so the parent ``meet_leave`` gets a finalized\\n   476|    # transcript. We set a flag instead of raising so the Playwright context\\n   477|    # teardown runs in the finally block below.\\n   478|    stop_flag = {\\\"stop\\\": False}\\n   479|\\n   480|    def _on_signal(_sig, _frame):\\n   481|        stop_flag[\\\"stop\\\"] = True\\n   482|\\n   483|    signal.signal(signal.SIGTERM, _on_signal)\\n   484|    signal.signal(signal.SIGINT, _on_signal)\\n   485|\\n   486|    # v2 realtime: provision virtual audio device + start speaker thread.\\n   487|    # We track these in a dict so the finally block can tear them down\\n   488|    # regardless of how we exit. If anything in the realtime setup fails we\\n   489|    # fall back to transcribe mode with a status flag.\\n   490|    rt = {\\n   491|        \\\"enabled\\\": mode == \\\"realtime\\\",\\n   492|        \\\"bridge\\\": None,            # AudioBridge | None\\n   493|        \\\"bridge_info\\\": None,       # dict | None\\n   494|        \\\"session\\\": None,           # RealtimeSession | None\\n   495|        \\\"speaker_thread\\\": None,    # threading.Thread | None\\n   496|        \\\"speaker_stop\\\": None,      # callable | None\\n   497|    }\\n   498|    if rt[\\\"enabled\\\"]:\\n   499|        if not realtime_api_key:\\n   500|            state.set(error=\\\"realtime mode requested but no API key in HERMES_MEET_REALTIME_KEY/OPENAI_API_KEY — falling back to transcribe\\\")\\n   501|\", \"total_lines\": 906, \"file_size\": 36262, \"truncated\": true, \"hint\": \"Use offset=501 to continue reading (showing 1-500 of 906 lines)\", \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_Ef28EIrvhYTMjU9J3WNl3749"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me read the remaining parts of both files to see where they diverge after line 500.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_08SyX9syQZWb70oAcFlx7101",
+          "call_id": "call_00_08SyX9syQZWb70oAcFlx7101",
+          "response_item_id": "fc_00_08SyX9syQZWb70oAcFlx7101",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/.hermes/hermes-agent/plugins/google_meet/meet_bot.py\", \"offset\": 500}"
+          }
+        },
+        {
+          "id": "call_01_J8cuvEHJcu6nq9mr7ZB77968",
+          "call_id": "call_01_J8cuvEHJcu6nq9mr7ZB77968",
+          "response_item_id": "fc_01_J8cuvEHJcu6nq9mr7ZB77968",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\", \"offset\": 500}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"   500|            state.set(error=\\\"realtime mode requested but no API key in HERMES_MEET_REALTIME_KEY/OPENAI_API_KEY — falling back to transcribe\\\")\\n   501|            rt[\\\"enabled\\\"] = False\\n   502|        else:\\n   503|            try:\\n   504|                from plugins.google_meet.audio_bridge import AudioBridge\\n   505|                bridge = AudioBridge()\\n   506|                rt[\\\"bridge_info\\\"] = bridge.setup()\\n   507|                rt[\\\"bridge\\\"] = bridge\\n   508|                state.set(realtime=True, realtime_device=rt[\\\"bridge_info\\\"].get(\\\"device_name\\\"))\\n   509|            except Exception as e:\\n   510|                state.set(error=f\\\"audio bridge setup failed: {e} — falling back to transcribe\\\")\\n   511|                rt[\\\"enabled\\\"] = False\\n   512|\\n   513|    try:\\n   514|        from playwright.sync_api import sync_playwright\\n   515|    except ImportError as e:\\n   516|        state.set(error=f\\\"playwright not installed: {e}\\\", exited=True)\\n   517|        sys.stderr.write(\\n   518|            \\\"google_meet bot: playwright is not installed. Run \\\"\\n   519|            \\\"`pip install playwright && python -m playwright install chromium`\\\\n\\\"\\n   520|        )\\n   521|        if rt[\\\"bridge\\\"]:\\n   522|            rt[\\\"bridge\\\"].teardown()\\n   523|        return 3\\n   524|\\n   525|    # Chrome env: if realtime is live on Linux, point PULSE_SOURCE at the\\n   526|    # virtual source so Chrome's fake mic reads the audio we generate.\\n   527|    chrome_env = os.environ.copy()\\n   528|    chrome_args = [\\n   529|        # Anti-detection: hide automation\\n   530|        \\\"--disable-blink-features=AutomationControlled\\\",\\n   531|        # Fake media streams\\n   532|        \\\"--use-fake-ui-for-media-stream\\\",\\n   533|        # Anti-fingerprinting: disable automation leaks\\n   534|        \\\"--disable-features=ChromeWhatsNewUI,InterestFeedContentSuggestions\\\",\\n   535|        \\\"--disable-component-update\\\",\\n   536|        \\\"--disable-background-networking\\\",\\n   537|        \\\"--disable-sync\\\",\\n   538|        \\\"--metrics-recording-only\\\",\\n   539|        \\\"--no-first-run\\\",\\n   540|        \\\"--disable-default-apps\\\",\\n   541|        \\\"--mute-audio\\\",\\n   542|    ]\\n   543|    if not rt[\\\"enabled\\\"]:\\n   544|        # v1-style fake device (silence) — we don't care about mic content\\n   545|        # when we're not speaking.\\n   546|        chrome_args.insert(1, \\\"--use-fake-device-for-media-stream\\\")\\n   547|    elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n   548|        chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n   549|\\n   550|    # Detect meeting type from URL before launching browser\\n   551|    _meeting_id = url.rstrip(\\\"/\\\").split(\\\"/\\\")[-1]\\n   552|    # Check if the bot's own account is hosting this meeting — if so,\\n   553|    # the bot should detect this and fail gracefully instead of silently\\n   554|    # looping in the lobby.\\n   555|    _account_email = None\\n   556|\\n   557|    try:\\n   558|        with sync_playwright() as pw:\\n   559|            # Playwright's launch() doesn't take env; we set PULSE_SOURCE\\n   560|            # via the process env before launch so the child Chrome inherits it.\\n   561|            for k, v in chrome_env.items():\\n   562|                os.environ[k] = v\\n   563|            # Use system Chrome with the user-data-dir from auth_state or a\\n   564|            # dedicated profile so Google recognises the signed-in session.\\n   565|            _user_data_dir = \\\"/tmp/hermes-meet-chrome\\\"\\n   566|            _use_profile = False\\n   567|            _parsed = None\\n   568|            if auth_state and Path(auth_state).is_file():\\n   569|                # The auth_state file can point to a chrome profile directory\\n   570|                # (just the dir path as the content) OR be storage_state JSON.\\n   571|                # Heuristic: if the file contains a JSON object with \\\"cookies\\\"\\n   572|                # or \\\"origins\\\" keys, treat it as storage_state. Otherwise\\n   573|                # read its first line as a user-data-dir path.\\n   574|                try:\\n   575|                    _raw = Path(auth_state).read_text()\\n   576|                    _parsed = json.loads(_raw)\\n   577|                except Exception:\\n   578|                    _parsed = None\\n   579|                if isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   580|                    # Playwright storage_state JSON — use it as-is\\n   581|                    _use_profile = False\\n   582|                else:\\n   583|                    # Treat the file content as a user-data-dir path\\n   584|                    _maybe_dir = _raw.strip().split(\\\"\\\\n\\\")[0].strip()\\n   585|                    if _maybe_dir and Path(_maybe_dir).is_dir():\\n   586|                        _user_data_dir = _maybe_dir\\n   587|                        _use_profile = True\\n   588|                        _parsed = None  # don't use storage_state\\n   589|\\n   590|            if _use_profile:\\n   591|                # launch_persistent_context uses system Chrome with the profile\\n   592|                context = pw.chromium.launch_persistent_context(\\n   593|                    user_data_dir=_user_data_dir,\\n   594|                    headless=not headed,\\n   595|                    args=chrome_args,\\n   596|                    channel=\\\"chrome\\\",\\n   597|                    viewport={\\\"width\\\": 1280, \\\"height\\\": 800},\\n   598|                    permissions=[\\\"microphone\\\", \\\"camera\\\"],\\n   599|                )\\n   600|                page = context.pages[0] if context.pages else context.new_page()\\n   601|            else:\\n   602|                browser = pw.chromium.launch(\\n   603|                    headless=not headed,\\n   604|                    args=chrome_args,\\n   605|                )\\n   606|                context_args = {\\n   607|                    \\\"viewport\\\": {\\\"width\\\": 1280, \\\"height\\\": 800},\\n   608|                    \\\"user_agent\\\": (\\n   609|                        \\\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \\\"\\n   610|                        \\\"(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\\\"\\n   611|                    ),\\n   612|                    \\\"permissions\\\": [\\\"microphone\\\", \\\"camera\\\"],\\n   613|                }\\n   614|                if _parsed and isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   615|                    context_args[\\\"storage_state\\\"] = auth_state\\n   616|                context = browser.new_context(**context_args)\\n   617|                page = context.new_page()\\n   618|\\n   619|            try:\\n   620|                page.goto(url, wait_until=\\\"domcontentloaded\\\", timeout=30_000)\\n   621|            except Exception as e:\\n   622|                state.set(error=f\\\"navigate failed: {e}\\\", exited=True)\\n   623|                return 4\\n   624|\\n   625|            # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n   626|            # we're authed, we instead see \\\"Join now\\\".\\n   627|            _try_guest_name(page, guest_name)\\n   628|\\n   629|            # Same-account detection: if the page shows the browser's OWN\\n   630|            # signed-in email prominently and the meeting is in a state where\\n   631|            # the user is already in the room hosting it, Google silently\\n   632|            # blocks a second session. Detect and exit fast.\\n   633|            try:\\n   634|                _page_text = page.evaluate(\\\"() => document.body.innerText\\\") or \\\"\\\"\\n   635|                if \\\"You are already in this meeting\\\" in _page_text:\\n   636|                    state.set(\\n   637|                        error=\\\"same_account: bot is logged into the same account that \\\"\\n   638|                               \\\"is hosting the meeting. Use a different Google account.\\\",\\n   639|                        in_call=False, captioning=False, exited=True,\\n   640|                    )\\n   641|                    return 5\\n   642|                # Also detect email-based: if the page shows our email at top-left\\n   643|                # and there's a \\\"You're the host\\\" or similar badge\\n   644|                if _account_email and _account_email in _page_text:\\n   645|                    if \\\"You can't join\\\" in _page_text or \\\"already in\\\" in _page_text.lower():\\n   646|                        state.set(\\n   647|                            error=\\\"same_account: bot account matches meeting host. \\\"\\n   648|                                   \\\"Use a different Google account.\\\",\\n   649|                            in_call=False, captioning=False, exited=True,\\n   650|                        )\\n   651|                        return 5\\n   652|            except Exception:\\n   653|                pass\\n   654|\\n   655|            _click_join(page, state)\\n   656|\\n   657|            # Install caption observer and attempt to enable captions.\\n   658|            try:\\n   659|                page.evaluate(_enable_captions_js())\\n   660|                state.set(captions_enabled_attempted=True)\\n   661|            except Exception:\\n   662|                pass\\n   663|            try:\\n   664|                page.evaluate(_CAPTION_OBSERVER_JS)\\n   665|            except Exception as e:\\n   666|                state.set(error=f\\\"caption observer install failed: {e}\\\")\\n   667|\\n   668|            # Note: in_call=False until admission is confirmed (we detect\\n   669|            # either the Leave button or the caption region, signalling we\\n   670|            # made it past the lobby).\\n   671|            state.set(captioning=True, join_attempted_at=time.time())\\n   672|\\n   673|            # v2 realtime: start the speaker thread reading from the\\n   674|            # plugin-side say queue. The thread reads JSONL lines written by\\n   675|            # meet_say, calls OpenAI Realtime, and streams the audio PCM to\\n   676|            # the virtual sink that Chrome's fake-mic is pointed at.\\n   677|            if rt[\\\"enabled\\\"]:\\n   678|                _start_realtime_speaker(\\n   679|                    rt=rt,\\n   680|                    out_dir=out_dir,\\n   681|                    bridge_info=rt[\\\"bridge_info\\\"],\\n   682|                    api_key=realtime_api_key,\\n   683|                    model=realtime_model,\\n   684|                    voice=realtime_voice,\\n   685|                    instructions=realtime_instructions,\\n   686|                    stop_flag=stop_flag,\\n   687|                    state=state,\\n   688|                )\\n   689|                if rt[\\\"session\\\"] is not None:\\n   690|                    state.set(realtime_ready=True)\\n   691|\\n   692|            # Admission + drain loop. Runs until SIGTERM, duration expiry,\\n   693|            # or the page detects \\\"You were removed / you left the\\n   694|            # meeting\\\". Responsible for:\\n   695|            #   * detecting admission (Leave button visible → in_call=True)\\n   696|            #   * timing out stuck-in-lobby (default 5 minutes)\\n   697|            #   * draining scraped captions into the transcript\\n   698|            #   * triggering realtime barge-in when a human speaks while\\n   699|            #     the bot is generating audio\\n   700|            #   * periodically flushing realtime counters into status.json\\n   701|            deadline = (time.time() + duration_s) if duration_s else None\\n   702|            lobby_deadline = time.time() + float(\\n   703|                os.environ.get(\\\"HERMES_MEET_LOBBY_TIMEOUT\\\", \\\"300\\\")\\n   704|            )\\n   705|            last_admission_check = 0.0\\n   706|            while not stop_flag[\\\"stop\\\"]:\\n   707|                now = time.time()\\n   708|                if deadline and now > deadline:\\n   709|                    state.set(leave_reason=\\\"duration_expired\\\")\\n   710|                    break\\n   711|\\n   712|                # Admission detection every ~3s until admitted.\\n   713|                if not state.in_call and (now - last_admission_check) > 3.0:\\n   714|                    last_admission_check = now\\n   715|                    admitted = _detect_admission(page)\\n   716|                    if admitted:\\n   717|                        state.set(\\n   718|                            in_call=True,\\n   719|                            lobby_waiting=False,\\n   720|                            joined_at=now,\\n   721|                        )\\n   722|                    elif now > lobby_deadline:\\n   723|                        state.set(\\n   724|                            error=(\\n   725|                                \\\"lobby timeout — host never admitted the bot \\\"\\n   726|                                f\\\"within {int(lobby_deadline - state.join_attempted_at) if state.join_attempted_at else 0}s\\\"\\n   727|                            ),\\n   728|                            leave_reason=\\\"lobby_timeout\\\",\\n   729|                        )\\n   730|                        break\\n   731|                    elif _detect_denied(page):\\n   732|                        state.set(\\n   733|                            error=\\\"host denied admission\\\",\\n   734|                            leave_reason=\\\"denied\\\",\\n   735|                        )\\n   736|                        break\\n   737|\\n   738|                try:\\n   739|                    queued = page.evaluate(\\\"window.__hermesMeetDrain && window.__hermesMeetDrain()\\\")\\n   740|                    if isinstance(queued, list):\\n   741|                        for entry in queued:\\n   742|                            if not isinstance(entry, dict):\\n   743|                                continue\\n   744|                            speaker = str(entry.get(\\\"speaker\\\", \\\"\\\"))\\n   745|                            text = str(entry.get(\\\"text\\\", \\\"\\\"))\\n   746|                            state.record_caption(speaker=speaker, text=text)\\n   747|                            # Barge-in: if the bot is currently generating\\n   748|                            # audio AND a real human just spoke, cancel the\\n   749|                            # in-flight response so we don't talk over them.\\n   750|                            if rt[\\\"enabled\\\"] and rt[\\\"session\\\"] is not None:\\n   751|                                if _looks_like_human_speaker(speaker, guest_name):\\n   752|                                    try:\\n   753|                                        cancelled = rt[\\\"session\\\"].cancel_response()\\n   754|                                        if cancelled:\\n   755|                                            state.set(last_barge_in_at=now)\\n   756|                                    except Exception:\\n   757|                                        pass\\n   758|                except Exception:\\n   759|                    # Meet reloaded or we got booted — try to detect and\\n   760|                    # exit gracefully rather than spinning.\\n   761|                    if page.is_closed():\\n   762|                        state.set(leave_reason=\\\"page_closed\\\")\\n   763|                        break\\n   764|\\n   765|                # Fold the realtime session's byte/timestamp counters into\\n   766|                # the status file so meet_status can surface them.\\n   767|                if rt[\\\"session\\\"] is not None:\\n   768|                    state.set(\\n   769|                        audio_bytes_out=getattr(rt[\\\"session\\\"], \\\"audio_bytes_out\\\", 0),\\n   770|                        last_audio_out_at=getattr(rt[\\\"session\\\"], \\\"last_audio_out_at\\\", None),\\n   771|                    )\\n   772|\\n   773|                time.sleep(1.0)\\n   774|\\n   775|            # Try to leave cleanly — click \\\"Leave call\\\" button if present.\\n   776|            try:\\n   777|                page.evaluate(\\n   778|                    \\\"() => { const b = document.querySelector('button[aria-label*=\\\\\\\"eave call\\\\\\\"]');\\\"\\n   779|                    \\\" if (b) b.click(); }\\\"\\n   780|                )\\n   781|            except Exception:\\n   782|                pass\\n   783|\\n   784|            context.close()\\n   785|            if \\\"browser\\\" in dir() or \\\"browser\\\" in locals():\\n   786|                try:\\n   787|                    browser.close()\\n   788|                except Exception:\\n   789|                    pass\\n   790|            # v2: teardown realtime speaker + audio bridge.\\n   791|            if rt[\\\"speaker_stop\\\"]:\\n   792|                try:\\n   793|                    rt[\\\"speaker_stop\\\"]()\\n   794|                except Exception:\\n   795|                    pass\\n   796|            if rt[\\\"speaker_thread\\\"] is not None:\\n   797|                try:\\n   798|                    rt[\\\"speaker_thread\\\"].join(timeout=5.0)\\n   799|                except Exception:\\n   800|                    pass\\n   801|            if rt[\\\"session\\\"]:\\n   802|                try:\\n   803|                    rt[\\\"session\\\"].close()\\n   804|                except Exception:\\n   805|                    pass\\n   806|            if rt[\\\"bridge\\\"]:\\n   807|                try:\\n   808|                    rt[\\\"bridge\\\"].teardown()\\n   809|                except Exception:\\n   810|                    pass\\n   811|            state.set(in_call=False, captioning=False, exited=True)\\n   812|            return 0\\n   813|\\n   814|    except Exception as e:\\n   815|        state.set(error=f\\\"unhandled: {e}\\\", exited=True)\\n   816|        return 1\\n   817|\\n   818|\\n   819|def _try_guest_name(page, guest_name: str) -> None:\\n   820|    \\\"\\\"\\\"If Meet is showing a guest-name input, type *guest_name* into it.\\\"\\\"\\\"\\n   821|    try:\\n   822|        # Meet's guest name input has placeholder \\\"Your name\\\".\\n   823|        locator = page.locator('input[aria-label*=\\\"name\\\" i]').first\\n   824|        if locator.count() and locator.is_visible():\\n   825|            locator.fill(guest_name, timeout=2_000)\\n   826|    except Exception:\\n   827|        pass\\n   828|\\n   829|\\n   830|def _detect_admission(page) -> bool:\\n   831|    \\\"\\\"\\\"True if we're clearly past the lobby and in the call itself.\\n   832|\\n   833|    Uses a JS-side probe because Meet's DOM structure varies by client\\n   834|    version. We check several high-signal indicators and declare admission\\n   835|    on the first hit:\\n   836|\\n   837|      1. Leave-call button is present (``aria-label`` contains \\\"eave call\\\").\\n   838|      2. Caption region has appeared (we installed the observer and it attached).\\n   839|      3. The participant list container is visible.\\n   840|\\n   841|    Conservative by default — returns False on any error.\\n   842|    \\\"\\\"\\\"\\n   843|    probe = r\\\"\\\"\\\"\\n   844|    (() => {\\n   845|      const leave = document.querySelector('button[aria-label*=\\\"eave call\\\" i]');\\n   846|      if (leave) return true;\\n   847|      if (window.__hermesMeetInstalled) {\\n   848|        const caps = document.querySelector(\\n   849|          '[role=\\\"region\\\"][aria-label*=\\\"aption\\\" i], ' +\\n   850|          'div[jsname=\\\"YSxPC\\\"], div[jsname=\\\"tgaKEf\\\"]'\\n   851|        );\\n   852|        if (caps) return true;\\n   853|      }\\n   854|      const parts = document.querySelector('[aria-label*=\\\"articipants\\\" i]');\\n   855|      if (parts) return true;\\n   856|      return false;\\n   857|    })();\\n   858|    \\\"\\\"\\\"\\n   859|    try:\\n   860|        return bool(page.evaluate(probe))\\n   861|    except Exception:\\n   862|        return False\\n   863|\\n   864|\\n   865|def _detect_denied(page) -> bool:\\n   866|    \\\"\\\"\\\"True when Meet is showing a 'you were denied' / 'no one admitted' page.\\\"\\\"\\\"\\n   867|    probe = r\\\"\\\"\\\"\\n   868|    (() => {\\n   869|      const text = document.body ? document.body.innerText || '' : '';\\n   870|      // English only — matches what shows up when the host denies or\\n   871|      // removes a guest.\\n   872|      if (/You can't join this video call/i.test(text)) return true;\\n   873|      if (/You were removed from the meeting/i.test(text)) return true;\\n   874|      if (/No one responded to your request to join/i.test(text)) return true;\\n   875|      return false;\\n   876|    })();\\n   877|    \\\"\\\"\\\"\\n   878|    try:\\n   879|        return bool(page.evaluate(probe))\\n   880|    except Exception:\\n   881|        return False\\n   882|\\n   883|\\n   884|def _looks_like_human_speaker(speaker: str, bot_guest_name: str) -> bool:\\n   885|    \\\"\\\"\\\"Whether a caption line's speaker is probably a human, not our bot echo.\\n   886|\\n   887|    Meet attributes captions to the speaker's display name. When Chrome is\\n   888|    reading our fake mic, Meet still attributes captions to *our* bot name\\n   889|    (because the bot is the one \\\"speaking\\\"). We don't want those to trigger\\n   890|    barge-in. Anything else — real participant names — does.\\n   891|\\n   892|    Conservative: unknown / blank speakers (common when caption scraping\\n   893|    falls back to raw text) do NOT trigger barge-in, because we can't tell\\n   894|    whether it was a human or us.\\n   895|    \\\"\\\"\\\"\\n   896|    if not speaker or not speaker.strip():\\n   897|        return False\\n   898|    spk = speaker.strip().lower()\\n   899|    if spk in (\\\"unknown\\\", \\\"you\\\", bot_guest_name.strip().lower()):\\n   900|        return False\\n   901|    return True\\n   902|\\n   903|\\n   904|def _click_join(page, state: _BotState) -> None:\\n   905|    \\\"\\\"\\\"Click 'Join now' or 'Ask to join' if either button is visible.\\n   906|\\n   907|    Flags ``lobby_waiting`` when we hit the \\\"waiting for host to admit you\\\"\\n   908|    state so the agent can surface that in status.\\n   909|    \\\"\\\"\\\"\\n   910|    for label in (\\\"Join now\\\", \\\"Ask to join\\\"):\\n   911|        try:\\n   912|            btn = page.get_by_role(\\\"button\\\", name=label, exact=False).first\\n   913|            if btn.count() and btn.is_visible():\\n   914|                btn.click(timeout=3_000)\\n   915|                if label == \\\"Ask to join\\\":\\n   916|                    state.set(lobby_waiting=True)\\n   917|                break\\n   918|        except Exception:\\n   919|            continue\\n   920|\\n   921|\\n   922|def _parse_duration(raw: str) -> Optional[float]:\\n   923|    \\\"\\\"\\\"Parse ``30m`` / ``2h`` / ``90`` (seconds) → float seconds, or None.\\\"\\\"\\\"\\n   924|    if not raw:\\n   925|        return None\\n   926|    raw = raw.strip().lower()\\n   927|    try:\\n   928|        if raw.endswith(\\\"h\\\"):\\n   929|            return float(raw[:-1]) * 3600\\n   930|        if raw.endswith(\\\"m\\\"):\\n   931|            return float(raw[:-1]) * 60\\n   932|        if raw.endswith(\\\"s\\\"):\\n   933|            return float(raw[:-1])\\n   934|        return float(raw)\\n   935|    except ValueError:\\n   936|        return None\\n   937|\\n   938|\\n   939|if __name__ == \\\"__main__\\\":  # pragma: no cover — subprocess entry point\\n   940|    sys.exit(run_bot())\\n   941|\", \"total_lines\": 940, \"file_size\": 38042, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_08SyX9syQZWb70oAcFlx7101"
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"   500|            state.set(error=\\\"realtime mode requested but no API key in HERMES_MEET_REALTIME_KEY/OPENAI_API_KEY — falling back to transcribe\\\")\\n   501|            rt[\\\"enabled\\\"] = False\\n   502|        else:\\n   503|            try:\\n   504|                from plugins.google_meet.audio_bridge import AudioBridge\\n   505|                bridge = AudioBridge()\\n   506|                rt[\\\"bridge_info\\\"] = bridge.setup()\\n   507|                rt[\\\"bridge\\\"] = bridge\\n   508|                state.set(realtime=True, realtime_device=rt[\\\"bridge_info\\\"].get(\\\"device_name\\\"))\\n   509|            except Exception as e:\\n   510|                state.set(error=f\\\"audio bridge setup failed: {e} — falling back to transcribe\\\")\\n   511|                rt[\\\"enabled\\\"] = False\\n   512|\\n   513|    try:\\n   514|        from playwright.sync_api import sync_playwright\\n   515|    except ImportError as e:\\n   516|        state.set(error=f\\\"playwright not installed: {e}\\\", exited=True)\\n   517|        sys.stderr.write(\\n   518|            \\\"google_meet bot: playwright is not installed. Run \\\"\\n   519|            \\\"`pip install playwright && python -m playwright install chromium`\\\\n\\\"\\n   520|        )\\n   521|        if rt[\\\"bridge\\\"]:\\n   522|            rt[\\\"bridge\\\"].teardown()\\n   523|        return 3\\n   524|\\n   525|    # Chrome env: if realtime is live on Linux, point PULSE_SOURCE at the\\n   526|    # virtual source so Chrome's fake mic reads the audio we generate.\\n   527|    chrome_env = os.environ.copy()\\n   528|    chrome_args = [\\n   529|        # Anti-detection: hide automation\\n   530|        \\\"--disable-blink-features=AutomationControlled\\\",\\n   531|        # Fake media streams\\n   532|        \\\"--use-fake-ui-for-media-stream\\\",\\n   533|        # Anti-fingerprinting: disable automation leaks\\n   534|        \\\"--disable-features=ChromeWhatsNewUI,InterestFeedContentSuggestions\\\",\\n   535|        \\\"--disable-component-update\\\",\\n   536|        \\\"--disable-background-networking\\\",\\n   537|        \\\"--disable-sync\\\",\\n   538|        \\\"--metrics-recording-only\\\",\\n   539|        \\\"--no-first-run\\\",\\n   540|        \\\"--disable-default-apps\\\",\\n   541|        \\\"--mute-audio\\\",\\n   542|    ]\\n   543|    if not rt[\\\"enabled\\\"]:\\n   544|        # v1-style fake device (silence) — we don't care about mic content\\n   545|        # when we're not speaking.\\n   546|        chrome_args.insert(1, \\\"--use-fake-device-for-media-stream\\\")\\n   547|    elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n   548|        chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n   549|\\n   550|    try:\\n   551|        with sync_playwright() as pw:\\n   552|            # Playwright's launch() doesn't take env; we set PULSE_SOURCE\\n   553|            # via the process env before launch so the child Chrome inherits it.\\n   554|            for k, v in chrome_env.items():\\n   555|                os.environ[k] = v\\n   556|            # Use system Chrome with the user-data-dir from auth_state or a\\n   557|            # dedicated profile so Google recognises the signed-in session.\\n   558|            _user_data_dir = \\\"/tmp/hermes-meet-chrome\\\"\\n   559|            _use_profile = False\\n   560|            _parsed = None\\n   561|            if auth_state and Path(auth_state).is_file():\\n   562|                # The auth_state file can point to a chrome profile directory\\n   563|                # (just the dir path as the content) OR be storage_state JSON.\\n   564|                # Heuristic: if the file contains a JSON object with \\\"cookies\\\"\\n   565|                # or \\\"origins\\\" keys, treat it as storage_state. Otherwise\\n   566|                # read its first line as a user-data-dir path.\\n   567|                try:\\n   568|                    _raw = Path(auth_state).read_text()\\n   569|                    _parsed = json.loads(_raw)\\n   570|                except Exception:\\n   571|                    _parsed = None\\n   572|                if isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   573|                    # Playwright storage_state JSON — use it as-is\\n   574|                    _use_profile = False\\n   575|                else:\\n   576|                    # Treat the file content as a user-data-dir path\\n   577|                    _maybe_dir = _raw.strip().split(\\\"\\\\n\\\")[0].strip()\\n   578|                    if _maybe_dir and Path(_maybe_dir).is_dir():\\n   579|                        _user_data_dir = _maybe_dir\\n   580|                        _use_profile = True\\n   581|                        _parsed = None  # don't use storage_state\\n   582|\\n   583|            if _use_profile:\\n   584|                # launch_persistent_context uses system Chrome with the profile\\n   585|                context = pw.chromium.launch_persistent_context(\\n   586|                    user_data_dir=_user_data_dir,\\n   587|                    headless=not headed,\\n   588|                    args=chrome_args,\\n   589|                    channel=\\\"chrome\\\",\\n   590|                    viewport={\\\"width\\\": 1280, \\\"height\\\": 800},\\n   591|                    permissions=[\\\"microphone\\\", \\\"camera\\\"],\\n   592|                )\\n   593|                page = context.pages[0] if context.pages else context.new_page()\\n   594|            else:\\n   595|                browser = pw.chromium.launch(\\n   596|                    headless=not headed,\\n   597|                    args=chrome_args,\\n   598|                )\\n   599|                context_args = {\\n   600|                    \\\"viewport\\\": {\\\"width\\\": 1280, \\\"height\\\": 800},\\n   601|                    \\\"user_agent\\\": (\\n   602|                        \\\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \\\"\\n   603|                        \\\"(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\\\"\\n   604|                    ),\\n   605|                    \\\"permissions\\\": [\\\"microphone\\\", \\\"camera\\\"],\\n   606|                }\\n   607|                if _parsed and isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   608|                    context_args[\\\"storage_state\\\"] = auth_state\\n   609|                context = browser.new_context(**context_args)\\n   610|                page = context.new_page()\\n   611|\\n   612|            try:\\n   613|                page.goto(url, wait_until=\\\"domcontentloaded\\\", timeout=30_000)\\n   614|            except Exception as e:\\n   615|                state.set(error=f\\\"navigate failed: {e}\\\", exited=True)\\n   616|                return 4\\n   617|\\n   618|            # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n   619|            # we're authed, we instead see \\\"Join now\\\".\\n   620|            _try_guest_name(page, guest_name)\\n   621|            _click_join(page, state)\\n   622|\\n   623|            # Install caption observer and attempt to enable captions.\\n   624|            try:\\n   625|                page.evaluate(_enable_captions_js())\\n   626|                state.set(captions_enabled_attempted=True)\\n   627|            except Exception:\\n   628|                pass\\n   629|            try:\\n   630|                page.evaluate(_CAPTION_OBSERVER_JS)\\n   631|            except Exception as e:\\n   632|                state.set(error=f\\\"caption observer install failed: {e}\\\")\\n   633|\\n   634|            # Note: in_call=False until admission is confirmed (we detect\\n   635|            # either the Leave button or the caption region, signalling we\\n   636|            # made it past the lobby).\\n   637|            state.set(captioning=True, join_attempted_at=time.time())\\n   638|\\n   639|            # v2 realtime: start the speaker thread reading from the\\n   640|            # plugin-side say queue. The thread reads JSONL lines written by\\n   641|            # meet_say, calls OpenAI Realtime, and streams the audio PCM to\\n   642|            # the virtual sink that Chrome's fake-mic is pointed at.\\n   643|            if rt[\\\"enabled\\\"]:\\n   644|                _start_realtime_speaker(\\n   645|                    rt=rt,\\n   646|                    out_dir=out_dir,\\n   647|                    bridge_info=rt[\\\"bridge_info\\\"],\\n   648|                    api_key=realtime_api_key,\\n   649|                    model=realtime_model,\\n   650|                    voice=realtime_voice,\\n   651|                    instructions=realtime_instructions,\\n   652|                    stop_flag=stop_flag,\\n   653|                    state=state,\\n   654|                )\\n   655|                if rt[\\\"session\\\"] is not None:\\n   656|                    state.set(realtime_ready=True)\\n   657|\\n   658|            # Admission + drain loop. Runs until SIGTERM, duration expiry,\\n   659|            # or the page detects \\\"You were removed / you left the\\n   660|            # meeting\\\". Responsible for:\\n   661|            #   * detecting admission (Leave button visible → in_call=True)\\n   662|            #   * timing out stuck-in-lobby (default 5 minutes)\\n   663|            #   * draining scraped captions into the transcript\\n   664|            #   * triggering realtime barge-in when a human speaks while\\n   665|            #     the bot is generating audio\\n   666|            #   * periodically flushing realtime counters into status.json\\n   667|            deadline = (time.time() + duration_s) if duration_s else None\\n   668|            lobby_deadline = time.time() + float(\\n   669|                os.environ.get(\\\"HERMES_MEET_LOBBY_TIMEOUT\\\", \\\"300\\\")\\n   670|            )\\n   671|            last_admission_check = 0.0\\n   672|            while not stop_flag[\\\"stop\\\"]:\\n   673|                now = time.time()\\n   674|                if deadline and now > deadline:\\n   675|                    state.set(leave_reason=\\\"duration_expired\\\")\\n   676|                    break\\n   677|\\n   678|                # Admission detection every ~3s until admitted.\\n   679|                if not state.in_call and (now - last_admission_check) > 3.0:\\n   680|                    last_admission_check = now\\n   681|                    admitted = _detect_admission(page)\\n   682|                    if admitted:\\n   683|                        state.set(\\n   684|                            in_call=True,\\n   685|                            lobby_waiting=False,\\n   686|                            joined_at=now,\\n   687|                        )\\n   688|                    elif now > lobby_deadline:\\n   689|                        state.set(\\n   690|                            error=(\\n   691|                                \\\"lobby timeout — host never admitted the bot \\\"\\n   692|                                f\\\"within {int(lobby_deadline - state.join_attempted_at) if state.join_attempted_at else 0}s\\\"\\n   693|                            ),\\n   694|                            leave_reason=\\\"lobby_timeout\\\",\\n   695|                        )\\n   696|                        break\\n   697|                    elif _detect_denied(page):\\n   698|                        state.set(\\n   699|                            error=\\\"host denied admission\\\",\\n   700|                            leave_reason=\\\"denied\\\",\\n   701|                        )\\n   702|                        break\\n   703|\\n   704|                try:\\n   705|                    queued = page.evaluate(\\\"window.__hermesMeetDrain && window.__hermesMeetDrain()\\\")\\n   706|                    if isinstance(queued, list):\\n   707|                        for entry in queued:\\n   708|                            if not isinstance(entry, dict):\\n   709|                                continue\\n   710|                            speaker = str(entry.get(\\\"speaker\\\", \\\"\\\"))\\n   711|                            text = str(entry.get(\\\"text\\\", \\\"\\\"))\\n   712|                            state.record_caption(speaker=speaker, text=text)\\n   713|                            # Barge-in: if the bot is currently generating\\n   714|                            # audio AND a real human just spoke, cancel the\\n   715|                            # in-flight response so we don't talk over them.\\n   716|                            if rt[\\\"enabled\\\"] and rt[\\\"session\\\"] is not None:\\n   717|                                if _looks_like_human_speaker(speaker, guest_name):\\n   718|                                    try:\\n   719|                                        cancelled = rt[\\\"session\\\"].cancel_response()\\n   720|                                        if cancelled:\\n   721|                                            state.set(last_barge_in_at=now)\\n   722|                                    except Exception:\\n   723|                                        pass\\n   724|                except Exception:\\n   725|                    # Meet reloaded or we got booted — try to detect and\\n   726|                    # exit gracefully rather than spinning.\\n   727|                    if page.is_closed():\\n   728|                        state.set(leave_reason=\\\"page_closed\\\")\\n   729|                        break\\n   730|\\n   731|                # Fold the realtime session's byte/timestamp counters into\\n   732|                # the status file so meet_status can surface them.\\n   733|                if rt[\\\"session\\\"] is not None:\\n   734|                    state.set(\\n   735|                        audio_bytes_out=getattr(rt[\\\"session\\\"], \\\"audio_bytes_out\\\", 0),\\n   736|                        last_audio_out_at=getattr(rt[\\\"session\\\"], \\\"last_audio_out_at\\\", None),\\n   737|                    )\\n   738|\\n   739|                time.sleep(1.0)\\n   740|\\n   741|            # Try to leave cleanly — click \\\"Leave call\\\" button if present.\\n   742|            try:\\n   743|                page.evaluate(\\n   744|                    \\\"() => { const b = document.querySelector('button[aria-label*=\\\\\\\"eave call\\\\\\\"]');\\\"\\n   745|                    \\\" if (b) b.click(); }\\\"\\n   746|                )\\n   747|            except Exception:\\n   748|                pass\\n   749|\\n   750|            context.close()\\n   751|            if \\\"browser\\\" in dir() or \\\"browser\\\" in locals():\\n   752|                try:\\n   753|                    browser.close()\\n   754|                except Exception:\\n   755|                    pass\\n   756|            # v2: teardown realtime speaker + audio bridge.\\n   757|            if rt[\\\"speaker_stop\\\"]:\\n   758|                try:\\n   759|                    rt[\\\"speaker_stop\\\"]()\\n   760|                except Exception:\\n   761|                    pass\\n   762|            if rt[\\\"speaker_thread\\\"] is not None:\\n   763|                try:\\n   764|                    rt[\\\"speaker_thread\\\"].join(timeout=5.0)\\n   765|                except Exception:\\n   766|                    pass\\n   767|            if rt[\\\"session\\\"]:\\n   768|                try:\\n   769|                    rt[\\\"session\\\"].close()\\n   770|                except Exception:\\n   771|                    pass\\n   772|            if rt[\\\"bridge\\\"]:\\n   773|                try:\\n   774|                    rt[\\\"bridge\\\"].teardown()\\n   775|                except Exception:\\n   776|                    pass\\n   777|            state.set(in_call=False, captioning=False, exited=True)\\n   778|            return 0\\n   779|\\n   780|    except Exception as e:\\n   781|        state.set(error=f\\\"unhandled: {e}\\\", exited=True)\\n   782|        return 1\\n   783|\\n   784|\\n   785|def _try_guest_name(page, guest_name: str) -> None:\\n   786|    \\\"\\\"\\\"If Meet is showing a guest-name input, type *guest_name* into it.\\\"\\\"\\\"\\n   787|    try:\\n   788|        # Meet's guest name input has placeholder \\\"Your name\\\".\\n   789|        locator = page.locator('input[aria-label*=\\\"name\\\" i]').first\\n   790|        if locator.count() and locator.is_visible():\\n   791|            locator.fill(guest_name, timeout=2_000)\\n   792|    except Exception:\\n   793|        pass\\n   794|\\n   795|\\n   796|def _detect_admission(page) -> bool:\\n   797|    \\\"\\\"\\\"True if we're clearly past the lobby and in the call itself.\\n   798|\\n   799|    Uses a JS-side probe because Meet's DOM structure varies by client\\n   800|    version. We check several high-signal indicators and declare admission\\n   801|    on the first hit:\\n   802|\\n   803|      1. Leave-call button is present (``aria-label`` contains \\\"eave call\\\").\\n   804|      2. Caption region has appeared (we installed the observer and it attached).\\n   805|      3. The participant list container is visible.\\n   806|\\n   807|    Conservative by default — returns False on any error.\\n   808|    \\\"\\\"\\\"\\n   809|    probe = r\\\"\\\"\\\"\\n   810|    (() => {\\n   811|      const leave = document.querySelector('button[aria-label*=\\\"eave call\\\" i]');\\n   812|      if (leave) return true;\\n   813|      if (window.__hermesMeetInstalled) {\\n   814|        const caps = document.querySelector(\\n   815|          '[role=\\\"region\\\"][aria-label*=\\\"aption\\\" i], ' +\\n   816|          'div[jsname=\\\"YSxPC\\\"], div[jsname=\\\"tgaKEf\\\"]'\\n   817|        );\\n   818|        if (caps) return true;\\n   819|      }\\n   820|      const parts = document.querySelector('[aria-label*=\\\"articipants\\\" i]');\\n   821|      if (parts) return true;\\n   822|      return false;\\n   823|    })();\\n   824|    \\\"\\\"\\\"\\n   825|    try:\\n   826|        return bool(page.evaluate(probe))\\n   827|    except Exception:\\n   828|        return False\\n   829|\\n   830|\\n   831|def _detect_denied(page) -> bool:\\n   832|    \\\"\\\"\\\"True when Meet is showing a 'you were denied' / 'no one admitted' page.\\\"\\\"\\\"\\n   833|    probe = r\\\"\\\"\\\"\\n   834|    (() => {\\n   835|      const text = document.body ? document.body.innerText || '' : '';\\n   836|      // English only — matches what shows up when the host denies or\\n   837|      // removes a guest.\\n   838|      if (/You can't join this video call/i.test(text)) return true;\\n   839|      if (/You were removed from the meeting/i.test(text)) return true;\\n   840|      if (/No one responded to your request to join/i.test(text)) return true;\\n   841|      return false;\\n   842|    })();\\n   843|    \\\"\\\"\\\"\\n   844|    try:\\n   845|        return bool(page.evaluate(probe))\\n   846|    except Exception:\\n   847|        return False\\n   848|\\n   849|\\n   850|def _looks_like_human_speaker(speaker: str, bot_guest_name: str) -> bool:\\n   851|    \\\"\\\"\\\"Whether a caption line's speaker is probably a human, not our bot echo.\\n   852|\\n   853|    Meet attributes captions to the speaker's display name. When Chrome is\\n   854|    reading our fake mic, Meet still attributes captions to *our* bot name\\n   855|    (because the bot is the one \\\"speaking\\\"). We don't want those to trigger\\n   856|    barge-in. Anything else — real participant names — does.\\n   857|\\n   858|    Conservative: unknown / blank speakers (common when caption scraping\\n   859|    falls back to raw text) do NOT trigger barge-in, because we can't tell\\n   860|    whether it was a human or us.\\n   861|    \\\"\\\"\\\"\\n   862|    if not speaker or not speaker.strip():\\n   863|        return False\\n   864|    spk = speaker.strip().lower()\\n   865|    if spk in (\\\"unknown\\\", \\\"you\\\", bot_guest_name.strip().lower()):\\n   866|        return False\\n   867|    return True\\n   868|\\n   869|\\n   870|def _click_join(page, state: _BotState) -> None:\\n   871|    \\\"\\\"\\\"Click 'Join now' or 'Ask to join' if either button is visible.\\n   872|\\n   873|    Flags ``lobby_waiting`` when we hit the \\\"waiting for host to admit you\\\"\\n   874|    state so the agent can surface that in status.\\n   875|    \\\"\\\"\\\"\\n   876|    for label in (\\\"Join now\\\", \\\"Ask to join\\\"):\\n   877|        try:\\n   878|            btn = page.get_by_role(\\\"button\\\", name=label, exact=False).first\\n   879|            if btn.count() and btn.is_visible():\\n   880|                btn.click(timeout=3_000)\\n   881|                if label == \\\"Ask to join\\\":\\n   882|                    state.set(lobby_waiting=True)\\n   883|                break\\n   884|        except Exception:\\n   885|            continue\\n   886|\\n   887|\\n   888|def _parse_duration(raw: str) -> Optional[float]:\\n   889|    \\\"\\\"\\\"Parse ``30m`` / ``2h`` / ``90`` (seconds) → float seconds, or None.\\\"\\\"\\\"\\n   890|    if not raw:\\n   891|        return None\\n   892|    raw = raw.strip().lower()\\n   893|    try:\\n   894|        if raw.endswith(\\\"h\\\"):\\n   895|            return float(raw[:-1]) * 3600\\n   896|        if raw.endswith(\\\"m\\\"):\\n   897|            return float(raw[:-1]) * 60\\n   898|        if raw.endswith(\\\"s\\\"):\\n   899|            return float(raw[:-1])\\n   900|        return float(raw)\\n   901|    except ValueError:\\n   902|        return None\\n   903|\\n   904|\\n   905|if __name__ == \\\"__main__\\\":  # pragma: no cover — subprocess entry point\\n   906|    sys.exit(run_bot())\\n   907|\", \"total_lines\": 906, \"file_size\": 36262, \"truncated\": false, \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_01_J8cuvEHJcu6nq9mr7ZB77968"
+    },
+    {
+      "role": "assistant",
+      "content": "Now I can clearly see the three differences. Let me apply the three patches to the build version:\n\n**Patch 1: `_meeting_id` extraction + `_account_email` initialization** (after the `chrome_env` section, before `try:`)\nThe source has these lines inserted:\n\n```\n    # Detect meeting type from URL before launching browser\n    _meeting_id = url.rstrip(\"/\").split(\"/\")[-1]\n    # Check if the bot's own account is hosting this meeting — if so,\n    # the bot should detect this and fail gracefully instead of silently\n    # looping in the lobby.\n    _account_email = None\n```\n\nBut the build version jumps straight from `chrome_env` lines to `try:`.\n\n**Patch 2: Same-account detection block** (after `_try_guest_name` call, before `_click_join`)\nThe source has a large same-account detection block between `_try_guest_name(page, guest_name)` and `_click_join(page, state)`.\n\n**Patch 3: The `_meeting_id` extraction** — wait, let me re-examine. The `_meeting_id` variable is used in the same-account block via `_account_email`. Let me apply all three patches now.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_slKl9A6ZrZEpmF4QIfbb7423",
+          "call_id": "call_00_slKl9A6ZrZEpmF4QIfbb7423",
+          "response_item_id": "fc_00_slKl9A6ZrZEpmF4QIfbb7423",
+          "type": "function",
+          "function": {
+            "name": "patch",
+            "arguments": "{\"mode\": \"replace\", \"path\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\", \"old_string\": \"    elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n        chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n\\n    try:\", \"new_string\": \"    elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n        chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n\\n    # Detect meeting type from URL before launching browser\\n    _meeting_id = url.rstrip(\\\"/\\\").split(\\\"/\\\")[-1]\\n    # Check if the bot's own account is hosting this meeting — if so,\\n    # the bot should detect this and fail gracefully instead of silently\\n    # looping in the lobby.\\n    _account_email = None\\n\\n    try:\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "patch",
+      "content": "{\"success\": true, \"diff\": \"--- a//root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\\n+++ b//root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\\n@@ -547,6 +547,13 @@\\n     elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n         chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n \\n+    # Detect meeting type from URL before launching browser\\n+    _meeting_id = url.rstrip(\\\"/\\\").split(\\\"/\\\")[-1]\\n+    # Check if the bot's own account is hosting this meeting — if so,\\n+    # the bot should detect this and fail gracefully instead of silently\\n+    # looping in the lobby.\\n+    _account_email = None\\n+\\n     try:\\n         with sync_playwright() as pw:\\n             # Playwright's launch() doesn't take env; we set PULSE_SOURCE\\n\", \"files_modified\": [\"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"], \"lint\": {\"status\": \"ok\", \"output\": \"\"}, \"_warning\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py was last read with offset/limit pagination (partial view). Re-read the whole file before overwriting it.\"}",
+      "tool_call_id": "call_00_slKl9A6ZrZEpmF4QIfbb7423"
+    },
+    {
+      "role": "assistant",
+      "content": "Now apply the same-account detection block after `_try_guest_name`:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_k8cjvBwllfwwUuHFkbF06487",
+          "call_id": "call_00_k8cjvBwllfwwUuHFkbF06487",
+          "response_item_id": "fc_00_k8cjvBwllfwwUuHFkbF06487",
+          "type": "function",
+          "function": {
+            "name": "patch",
+            "arguments": "{\"new_string\": \"            # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n            # we're authed, we instead see \\\"Join now\\\".\\n            _try_guest_name(page, guest_name)\\n\\n            # Same-account detection: if the page shows the browser's OWN\\n            # signed-in email prominently and the meeting is in a state where\\n            # the user is already in the room hosting it, Google silently\\n            # blocks a second session. Detect and exit fast.\\n            try:\\n                _page_text = page.evaluate(\\\"() => document.body.innerText\\\") or \\\"\\\"\\n                if \\\"You are already in this meeting\\\" in _page_text:\\n                    state.set(\\n                        error=\\\"same_account: bot is logged into the same account that \\\"\\n                               \\\"is hosting the meeting. Use a different Google account.\\\",\\n                        in_call=False, captioning=False, exited=True,\\n                    )\\n                    return 5\\n                # Also detect email-based: if the page shows our email at top-left\\n                # and there's a \\\"You're the host\\\" or similar badge\\n                if _account_email and _account_email in _page_text:\\n                    if \\\"You can't join\\\" in _page_text or \\\"already in\\\" in _page_text.lower():\\n                        state.set(\\n                            error=\\\"same_account: bot account matches meeting host. \\\"\\n                                   \\\"Use a different Google account.\\\",\\n                            in_call=False, captioning=False, exited=True,\\n                        )\\n                        return 5\\n            except Exception:\\n                pass\\n\\n            _click_join(page, state)\", \"old_string\": \"            # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n            # we're authed, we instead see \\\"Join now\\\".\\n            _try_guest_name(page, guest_name)\\n            _click_join(page, state)\", \"path\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "patch",
+      "content": "{\"success\": true, \"diff\": \"--- a//root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\\n+++ b//root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\\n@@ -625,6 +625,33 @@\\n             # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n             # we're authed, we instead see \\\"Join now\\\".\\n             _try_guest_name(page, guest_name)\\n+\\n+            # Same-account detection: if the page shows the browser's OWN\\n+            # signed-in email prominently and the meeting is in a state where\\n+            # the user is already in the room hosting it, Google silently\\n+            # blocks a second session. Detect and exit fast.\\n+            try:\\n+                _page_text = page.evaluate(\\\"() => document.body.innerText\\\") or \\\"\\\"\\n+                if \\\"You are already in this meeting\\\" in _page_text:\\n+                    state.set(\\n+                        error=\\\"same_account: bot is logged into the same account that \\\"\\n+                               \\\"is hosting the meeting. Use a different Google account.\\\",\\n+                        in_call=False, captioning=False, exited=True,\\n+                    )\\n+                    return 5\\n+                # Also detect email-based: if the page shows our email at top-left\\n+                # and there's a \\\"You're the host\\\" or similar badge\\n+                if _account_email and _account_email in _page_text:\\n+                    if \\\"You can't join\\\" in _page_text or \\\"already in\\\" in _page_text.lower():\\n+                        state.set(\\n+                            error=\\\"same_account: bot account matches meeting host. \\\"\\n+                                   \\\"Use a different Google account.\\\",\\n+                            in_call=False, captioning=False, exited=True,\\n+                        )\\n+                        return 5\\n+            except Exception:\\n+                pass\\n+\\n             _click_join(page, state)\\n \\n             # Install caption observer and attempt to enable captions.\\n\", \"files_modified\": [\"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"], \"lint\": {\"status\": \"ok\", \"output\": \"\"}}",
+      "tool_call_id": "call_00_k8cjvBwllfwwUuHFkbF06487"
+    },
+    {
+      "role": "assistant",
+      "content": "Both patches applied cleanly. Let me verify the final state of the build file matches the source by checking the critical sections:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_CbEwi31xbuW2W74QcAYb0954",
+          "call_id": "call_00_CbEwi31xbuW2W74QcAYb0954",
+          "response_item_id": "fc_00_CbEwi31xbuW2W74QcAYb0954",
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "arguments": "{\"path\": \"/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\", \"offset\": 545, \"limit\": 110}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "read_file",
+      "content": "{\"content\": \"   545|        # when we're not speaking.\\n   546|        chrome_args.insert(1, \\\"--use-fake-device-for-media-stream\\\")\\n   547|    elif rt[\\\"bridge_info\\\"] and rt[\\\"bridge_info\\\"].get(\\\"platform\\\") == \\\"linux\\\":\\n   548|        chrome_env[\\\"PULSE_SOURCE\\\"] = rt[\\\"bridge_info\\\"].get(\\\"device_name\\\", \\\"\\\")\\n   549|\\n   550|    # Detect meeting type from URL before launching browser\\n   551|    _meeting_id = url.rstrip(\\\"/\\\").split(\\\"/\\\")[-1]\\n   552|    # Check if the bot's own account is hosting this meeting — if so,\\n   553|    # the bot should detect this and fail gracefully instead of silently\\n   554|    # looping in the lobby.\\n   555|    _account_email = None\\n   556|\\n   557|    try:\\n   558|        with sync_playwright() as pw:\\n   559|            # Playwright's launch() doesn't take env; we set PULSE_SOURCE\\n   560|            # via the process env before launch so the child Chrome inherits it.\\n   561|            for k, v in chrome_env.items():\\n   562|                os.environ[k] = v\\n   563|            # Use system Chrome with the user-data-dir from auth_state or a\\n   564|            # dedicated profile so Google recognises the signed-in session.\\n   565|            _user_data_dir = \\\"/tmp/hermes-meet-chrome\\\"\\n   566|            _use_profile = False\\n   567|            _parsed = None\\n   568|            if auth_state and Path(auth_state).is_file():\\n   569|                # The auth_state file can point to a chrome profile directory\\n   570|                # (just the dir path as the content) OR be storage_state JSON.\\n   571|                # Heuristic: if the file contains a JSON object with \\\"cookies\\\"\\n   572|                # or \\\"origins\\\" keys, treat it as storage_state. Otherwise\\n   573|                # read its first line as a user-data-dir path.\\n   574|                try:\\n   575|                    _raw = Path(auth_state).read_text()\\n   576|                    _parsed = json.loads(_raw)\\n   577|                except Exception:\\n   578|                    _parsed = None\\n   579|                if isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   580|                    # Playwright storage_state JSON — use it as-is\\n   581|                    _use_profile = False\\n   582|                else:\\n   583|                    # Treat the file content as a user-data-dir path\\n   584|                    _maybe_dir = _raw.strip().split(\\\"\\\\n\\\")[0].strip()\\n   585|                    if _maybe_dir and Path(_maybe_dir).is_dir():\\n   586|                        _user_data_dir = _maybe_dir\\n   587|                        _use_profile = True\\n   588|                        _parsed = None  # don't use storage_state\\n   589|\\n   590|            if _use_profile:\\n   591|                # launch_persistent_context uses system Chrome with the profile\\n   592|                context = pw.chromium.launch_persistent_context(\\n   593|                    user_data_dir=_user_data_dir,\\n   594|                    headless=not headed,\\n   595|                    args=chrome_args,\\n   596|                    channel=\\\"chrome\\\",\\n   597|                    viewport={\\\"width\\\": 1280, \\\"height\\\": 800},\\n   598|                    permissions=[\\\"microphone\\\", \\\"camera\\\"],\\n   599|                )\\n   600|                page = context.pages[0] if context.pages else context.new_page()\\n   601|            else:\\n   602|                browser = pw.chromium.launch(\\n   603|                    headless=not headed,\\n   604|                    args=chrome_args,\\n   605|                )\\n   606|                context_args = {\\n   607|                    \\\"viewport\\\": {\\\"width\\\": 1280, \\\"height\\\": 800},\\n   608|                    \\\"user_agent\\\": (\\n   609|                        \\\"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \\\"\\n   610|                        \\\"(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36\\\"\\n   611|                    ),\\n   612|                    \\\"permissions\\\": [\\\"microphone\\\", \\\"camera\\\"],\\n   613|                }\\n   614|                if _parsed and isinstance(_parsed, dict) and (\\\"cookies\\\" in _parsed or \\\"origins\\\" in _parsed):\\n   615|                    context_args[\\\"storage_state\\\"] = auth_state\\n   616|                context = browser.new_context(**context_args)\\n   617|                page = context.new_page()\\n   618|\\n   619|            try:\\n   620|                page.goto(url, wait_until=\\\"domcontentloaded\\\", timeout=30_000)\\n   621|            except Exception as e:\\n   622|                state.set(error=f\\\"navigate failed: {e}\\\", exited=True)\\n   623|                return 4\\n   624|\\n   625|            # Guest-mode: Meet shows a name field before \\\"Ask to join\\\". When\\n   626|            # we're authed, we instead see \\\"Join now\\\".\\n   627|            _try_guest_name(page, guest_name)\\n   628|\\n   629|            # Same-account detection: if the page shows the browser's OWN\\n   630|            # signed-in email prominently and the meeting is in a state where\\n   631|            # the user is already in the room hosting it, Google silently\\n   632|            # blocks a second session. Detect and exit fast.\\n   633|            try:\\n   634|                _page_text = page.evaluate(\\\"() => document.body.innerText\\\") or \\\"\\\"\\n   635|                if \\\"You are already in this meeting\\\" in _page_text:\\n   636|                    state.set(\\n   637|                        error=\\\"same_account: bot is logged into the same account that \\\"\\n   638|                               \\\"is hosting the meeting. Use a different Google account.\\\",\\n   639|                        in_call=False, captioning=False, exited=True,\\n   640|                    )\\n   641|                    return 5\\n   642|                # Also detect email-based: if the page shows our email at top-left\\n   643|                # and there's a \\\"You're the host\\\" or similar badge\\n   644|                if _account_email and _account_email in _page_text:\\n   645|                    if \\\"You can't join\\\" in _page_text or \\\"already in\\\" in _page_text.lower():\\n   646|                        state.set(\\n   647|                            error=\\\"same_account: bot account matches meeting host. \\\"\\n   648|                                   \\\"Use a different Google account.\\\",\\n   649|                            in_call=False, captioning=False, exited=True,\\n   650|                        )\\n   651|                        return 5\\n   652|            except Exception:\\n   653|                pass\\n   654|\\n   655|\", \"total_lines\": 940, \"file_size\": 38042, \"truncated\": true, \"hint\": \"Use offset=655 to continue reading (showing 545-654 of 940 lines)\", \"is_binary\": false, \"is_image\": false}",
+      "tool_call_id": "call_00_CbEwi31xbuW2W74QcAYb0954"
+    },
+    {
+      "role": "assistant",
+      "content": "Let me also confirm the total line count matches:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_cCAMDSFXhYVMEot69WgT1318",
+          "call_id": "call_00_cCAMDSFXhYVMEot69WgT1318",
+          "response_item_id": "fc_00_cCAMDSFXhYVMEot69WgT1318",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"wc -l /root/.hermes/hermes-agent/plugins/google_meet/meet_bot.py /root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"940 /root/.hermes/hermes-agent/plugins/google_meet/meet_bot.py\\n  940 /root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\\n 1880 total\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_cCAMDSFXhYVMEot69WgT1318"
+    },
+    {
+      "role": "assistant",
+      "content": "Both files are now exactly 940 lines. Let me do a quick diff to confirm they're identical:",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_mXXZStm2mLWHcqHnDKkW0517",
+          "call_id": "call_00_mXXZStm2mLWHcqHnDKkW0517",
+          "response_item_id": "fc_00_mXXZStm2mLWHcqHnDKkW0517",
+          "type": "function",
+          "function": {
+            "name": "terminal",
+            "arguments": "{\"command\": \"diff /root/.hermes/hermes-agent/plugins/google_meet/meet_bot.py /root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "terminal",
+      "content": "{\"output\": \"\", \"exit_code\": 0, \"error\": null}",
+      "tool_call_id": "call_00_mXXZStm2mLWHcqHnDKkW0517"
+    },
+    {
+      "role": "assistant",
+      "content": "No differences — the files are identical.\n\n## Summary\n\n**What I did:** Applied all 3 remaining patches from the source `meet_bot.py` to the build copy at `build/lib/plugins/google_meet/meet_bot.py`.\n\n**Patch 1 (`_meeting_id` + `_account_email` initialization):** Inserted 7 lines after the `chrome_env` section (after `PULSE_SOURCE` assignment), before the `try:` block. This extracts `_meeting_id` from the URL and initializes `_account_email = None` for same-account detection.\n\n**Patch 2 (Same-account detection block):** Inserted a 26-line same-account detection block between `_try_guest_name(page, guest_name)` and `_click_join(page, state)`. This checks for \"You are already in this meeting\" text and email-based host matching, returning exit code 5 if detected.\n\n**Files modified:**\n- `/root/.hermes/hermes-agent/build/lib/plugins/google_meet/meet_bot.py`\n\n**Result:** Both files are now identical (940 lines each, `diff` returns no output). All patches applied cleanly with no issues.",
+      "reasoning": null,
+      "finish_reason": "stop"
+    }
+  ]
+}

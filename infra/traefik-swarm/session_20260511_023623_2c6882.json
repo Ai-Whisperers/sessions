@@ -1,0 +1,932 @@
+{
+  "session_id": "20260511_023623_2c6882",
+  "model": "deepseek-chat",
+  "base_url": "https://api.deepseek.com/v1",
+  "platform": "tui",
+  "session_start": "[REDACTED_PHONE]T02:36:23.751570",
+  "last_updated": "[REDACTED_PHONE]T02:38:28.943416",
+  "system_prompt": "You are Hermes Agent, an intelligent AI assistant created by Nous Research. You are helpful, knowledgeable, and direct. You assist users with a wide range of tasks including answering questions, writing and editing code, analyzing information, creative work, and executing actions via your tools. You communicate clearly, admit uncertainty when appropriate, and prioritize being genuinely useful over being verbose unless otherwise directed below. Be targeted and efficient in your exploration and investigations.\n\nIf the user asks about configuring, setting up, or using Hermes Agent itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') before answering. Docs: https://hermes-agent.nousresearch.com/docs\n\nConversation started: Monday, May 11, 2026 02:36 AM\nModel: deepseek-chat\nProvider: deepseek\n\nHost: Linux (6.8.0-90-generic)\nUser home directory: /root\nCurrent working directory: /root/.hermes/hermes-agent",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_configure_inbound_ai",
+        "description": "Set up an AI voice agent to autonomously answer incoming calls to a phone number. This is the AgentCall equivalent of Twilio's inbound voice webhook URL: instead of pointing the number at a webhook you host, you give AgentCall a system prompt and AgentCall handles the call with a managed AI voice agent. Use this (NOT 'create_webhook') when you want a phone number to answer calls. Set the system prompt, voice, and optional first message; when someone calls the number, the AI picks up and follows the prompt. Pass `notify.emailTo` to also receive a plain-English summary of every call (caller, intent, urgency, callback time) so small-business owners do not need to read transcripts. Free tier: 5 minutes/month free trial, no card required. Once the trial is exhausted, inbound AI calls hang up until the 1st of next month (UTC) or until the user upgrades to Pro for unlimited inbound AI at $0.40/min. Available on US and Canada numbers. Before writing systemPrompt from scratch, fetch GET https://api.agentcall.co/v1/calls/prompt-templates (no auth) for pre-built templates: receptionist, lead qualifier, appointment booker, customer support, call screener. Preview voices via GET https://api.agentcall.co/v1/calls/voices.\n\nIMPORTANT (persistent config: confirm before enabling, monitor after): this is NOT a one-shot tool call. Once configured, the number autonomously answers every incoming call from then on, accumulates per-minute charges (at $0.40/min on Pro past the Free 5-minute monthly trial), and keeps doing so until disable_inbound_ai is called. Before invoking, get the user's explicit confirmation on: (1) exact E.164 number to configure (read it back), (2) systemPrompt content (read back at least the WHAT WE DO and PRICING sections so the user can correct invented facts before any caller hears them), (3) record setting (default false; recording adds $0.01/min and 1-year retention), (4) notify.emailTo (confirm the address is theirs and that they want every call summarized), (5) maxDurationSecs (use the smallest value that fits the use case so a stuck call cannot run for an hour), (6) budget expectations (Free 5 min/month then hang-up, or Pro $0.40/min with no monthly cap). After enabling, periodically check get_usage so the user sees consumption, and proactively offer to call disable_inbound_ai when their stated goal is met (testing finished, campaign over, business closed for the season). On reports of unexpected charges or unexpected calls, disable_inbound_ai first then debug.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to configure for inbound AI (e.g. 'num_abc123')"
+            },
+            "systemPrompt": {
+              "type": "string",
+              "description": "Instructions for the AI when it answers (e.g. 'You are the front desk for Acme Plumbing. Greet callers, take their name, phone, and a brief description of the issue, then say someone will call back within 2 hours.')"
+            },
+            "voice": {
+              "type": "string",
+              "description": "Voice: 10 options. marin (soft, natural) and cedar (warm, grounded) are the newest natural-sounding picks. shimmer (default), sage, ash, ballad, coral, echo, verse, alloy. Preview at GET /v1/calls/voices."
+            },
+            "firstMessage": {
+              "type": "string",
+              "description": "What the AI says when it picks up (e.g. 'Hi, thanks for calling Acme Plumbing. How can I help?')"
+            },
+            "maxDurationSecs": {
+              "type": "number",
+              "description": "Max call duration in seconds (default 600, max 3600)"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Opt in to call recording. When true, every inbound call to this number is recorded and listenable from the dashboard. Adds $0.01/min on top of the AI voice rate. Tell the user to make sure their first message includes a TCPA disclosure ('this call may be recorded for quality') — required by two-party-consent states. Default false."
+            },
+            "notify": {
+              "type": "object",
+              "properties": {
+                "emailTo": {
+                  "type": "string",
+                  "format": "email",
+                  "maxLength": 200,
+                  "description": "Email address to receive the post-call summary"
+                },
+                "businessName": {
+                  "type": "string",
+                  "maxLength": 100,
+                  "description": "Business name shown in the email subject and body"
+                },
+                "agencyName": {
+                  "type": "string",
+                  "maxLength": 50,
+                  "description": "Agency/brand name used in the email sign-off"
+                }
+              },
+              "additionalProperties": false,
+              "description": "Optional post-call email notification. After every call, AgentCall summarizes the transcript with an LLM and emails the summary to the configured address. Spam calls are auto-suppressed. Email-only for v1; SMS notifications are not exposed."
+            }
+          },
+          "required": [
+            "numberId",
+            "systemPrompt"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_create_webhook",
+        "description": "Subscribe to outbound event delivery: AgentCall POSTs to your HTTPS URL when events fire (SMS received, OTP detected, call completed, etc.). NOT for handling inbound calls — to make a phone number answer incoming calls, use 'configure_inbound_ai' instead. The URL must use HTTPS.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "description": "HTTPS webhook endpoint URL (e.g. '[REDACTED_WEBHOOK]')"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Events to subscribe to. Options: 'sms.inbound', 'sms.otp', 'call.inbound', 'call.ringing', 'call.status', 'call.recording', 'number.released'"
+            }
+          },
+          "required": [
+            "url",
+            "events"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_delete_webhook",
+        "description": "Deactivate and remove a webhook endpoint. It will immediately stop receiving events.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "webhookId": {
+              "type": "string",
+              "description": "The webhook ID to delete (e.g. 'wh_abc123')"
+            }
+          },
+          "required": [
+            "webhookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_disable_inbound_ai",
+        "description": "Disable inbound AI on a phone number. Future incoming calls will be hung up by the carrier until re-configured. Does not release the number — billing for the number itself continues.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to clear inbound config for"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_call",
+        "description": "Get details of a specific call by ID, including status, duration, and recording URL.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The call ID to look up (e.g. 'call_abc123')"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_call_transcript",
+        "description": "Get the transcript of a completed AI voice call. Returns the full conversation with timestamps, a summary, and call duration.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The AI call ID to get the transcript for"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_inbox",
+        "description": "Get inbound SMS messages for a phone number. Can filter to show only messages containing OTP codes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to check inbox for"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Max messages to return (default 20)"
+            },
+            "otpOnly": {
+              "type": "boolean",
+              "description": "If true, only return messages that contain an extracted OTP code"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_message",
+        "description": "Get a specific SMS message by its ID. Returns the full message including body, OTP (if extracted), and status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "messageId": {
+              "type": "string",
+              "description": "The message ID (e.g. 'msg_abc123')"
+            }
+          },
+          "required": [
+            "messageId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_number",
+        "description": "Get details of a specific phone number by its ID. Returns the full number object including status and monthly rate.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID (e.g. 'num_abc123')"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_prompt",
+        "description": "Get a prompt by name from MCP server 'agentcall'",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the prompt to retrieve"
+            },
+            "arguments": {
+              "type": "object",
+              "description": "Optional arguments to pass to the prompt",
+              "properties": {},
+              "additionalProperties": true
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_get_usage",
+        "description": "Get usage and cost breakdown for a billing period. Returns numbers provisioned, SMS sent/received, call minutes, recording minutes, and total cost.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "period": {
+              "type": "string",
+              "description": "Billing period in YYYY-MM format (e.g. '2026-02'). Defaults to current month."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_hangup_call",
+        "description": "Terminate an active phone call. The call must be in progress.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "callId": {
+              "type": "string",
+              "description": "The call ID to hang up (e.g. 'call_abc123')"
+            }
+          },
+          "required": [
+            "callId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_initiate_ai_call",
+        "description": "Start an AI-powered voice call where AI handles the conversation autonomously. The AI will speak using the specified voice and follow the system prompt instructions. Pro plan only ($0.40/min). Available on US and Canada numbers. Before writing systemPrompt from scratch, fetch GET https://api.agentcall.co/v1/calls/prompt-templates (no auth) for ready-made templates with placeholders to fill in.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to call from (must be a US or Canada number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "systemPrompt": {
+              "type": "string",
+              "description": "Instructions for the AI during the call (e.g. 'You are calling a restaurant to ask about their hours and reservation policy')"
+            },
+            "voice": {
+              "type": "string",
+              "description": "Voice: 10 options. marin (soft, natural) and cedar (warm, grounded) are the newest natural-sounding picks. shimmer (default), sage, ash, ballad, coral, echo, verse, alloy. Preview at GET /v1/calls/voices."
+            },
+            "firstMessage": {
+              "type": "string",
+              "description": "What the AI says first when the call connects (e.g. 'Hello! I'm calling to ask about your business hours.')"
+            },
+            "maxDurationSecs": {
+              "type": "number",
+              "description": "Max call duration in seconds (default 600, max 3600)"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Opt in to call recording. When true, both legs of the call are recorded and listenable from the dashboard. Adds $0.01/min on top of the AI voice rate. Make sure firstMessage includes a TCPA disclosure ('this call may be recorded for quality') — required by two-party-consent states. Default false."
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "systemPrompt"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_initiate_call",
+        "description": "Start an outbound phone call from one of your provisioned numbers. Optionally enable call recording (Pro plan only, $0.01/min).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to call from (must be a provisioned number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "record": {
+              "type": "boolean",
+              "description": "Enable call recording (Pro plan only, $0.01/min additional)"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_calls",
+        "description": "List call history for this agent. Returns calls with their status, duration, and recording URLs.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "Max results to return (default 20)"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_numbers",
+        "description": "List all phone numbers provisioned for this agent. Returns an array of number objects with IDs, phone strings, types, and status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "number",
+              "description": "Max results to return (default 20)"
+            },
+            "country": {
+              "type": "string",
+              "description": "Filter by country code (US, CA)"
+            },
+            "type": {
+              "type": "string",
+              "description": "Filter by type (local, tollfree, mobile)"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_prompts",
+        "description": "List available prompts from MCP server 'agentcall'",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_list_webhooks",
+        "description": "List all registered webhook endpoints and their subscribed events.",
+        "parameters": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_provision_number",
+        "description": "Provision a new phone number for your AI agent. Returns the number details including the phone number string and ID.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "country": {
+              "type": "string",
+              "description": "Country code — US or CA. Defaults to US."
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "local",
+                "tollfree",
+                "mobile"
+              ],
+              "description": "Number type. 'local' ($2/mo, available on Free + Pro). 'mobile' ($2/mo) and 'tollfree' ($2.50/mo, 800-style numbers) are Pro plan only."
+            },
+            "label": {
+              "type": "string",
+              "description": "Label for easy identification (e.g. 'signup-agent', 'support-bot')"
+            },
+            "areaCode": {
+              "type": "string",
+              "pattern": "^\\d{3}$",
+              "description": "Optional 3-digit NANP area code for local or mobile numbers. Works for both US (e.g. '314' St. Louis, '415' SF) and CA (e.g. '416' Toronto, '604' Vancouver). Canada shares NANP. Only honored for local and mobile types. Ignored for tollfree. Returns a no_numbers_in_area_code error if inventory is empty for that NPA. Fall back to omitting for any local number in the country."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_release_number",
+        "description": "Release a phone number, deactivating it and stopping billing. This action is irreversible.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to release"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_rotate_webhook_secret",
+        "description": "Rotate the signing secret for a webhook. The old secret is immediately invalidated and a new one is generated. Store the new secret securely — it is only shown once.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "webhookId": {
+              "type": "string",
+              "description": "The webhook ID to rotate the secret for (e.g. 'wh_abc123')"
+            }
+          },
+          "required": [
+            "webhookId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_send_sms",
+        "description": "Send an SMS message from one of your provisioned numbers. Returns the message object with ID and delivery status.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "The number ID or E.164 phone string to send from (must be a provisioned number)"
+            },
+            "to": {
+              "type": "string",
+              "description": "Recipient phone number in E.164 format (e.g. '[REDACTED_PHONE]')"
+            },
+            "body": {
+              "type": "string",
+              "description": "The SMS message text (max 1600 chars)"
+            }
+          },
+          "required": [
+            "from",
+            "to",
+            "body"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "mcp_agentcall_wait_for_otp",
+        "description": "Wait for an OTP verification code to arrive via SMS on a phone number. Polls the inbox until an OTP is detected or timeout is reached. Returns the extracted code string.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "numberId": {
+              "type": "string",
+              "description": "The phone number ID to watch for incoming OTP"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Max wait time in milliseconds (default 60000 = 60 seconds)"
+            }
+          },
+          "required": [
+            "numberId"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "process",
+        "description": "Manage background processes started with terminal(background=true). Actions: 'list' (show all), 'poll' (check status + new output), 'log' (full output with pagination), 'wait' (block until done or timeout), 'kill' (terminate), 'write' (send raw stdin data without newline), 'submit' (send data + Enter, for answering prompts), 'close' (close stdin/send EOF).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "list",
+                "poll",
+                "log",
+                "wait",
+                "kill",
+                "write",
+                "submit",
+                "close"
+              ],
+              "description": "Action to perform on background processes"
+            },
+            "session_id": {
+              "type": "string",
+              "description": "Process session ID (from terminal background output). Required for all actions except 'list'."
+            },
+            "data": {
+              "type": "string",
+              "description": "Text to send to process stdin (for 'write' and 'submit' actions)"
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to block for 'wait' action. Returns partial output on timeout.",
+              "minimum": 1
+            },
+            "offset": {
+              "type": "integer",
+              "description": "Line offset for 'log' action (default: last 200 lines)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Max lines to return for 'log' action",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "terminal",
+        "description": "Execute shell commands on a Linux environment. Filesystem usually persists between calls.\n\nDo NOT use cat/head/tail to read files — use read_file instead.\nDo NOT use grep/rg/find to search — use search_files instead.\nDo NOT use ls to list directories — use search_files(target='files') instead.\nDo NOT use sed/awk to edit files — use patch instead.\nDo NOT use echo/cat heredoc to create files — use write_file instead.\nReserve terminal for: builds, installs, git, processes, scripts, network, package managers, and anything that needs a shell.\n\nForeground (default): Commands return INSTANTLY when done, even if the timeout is high. Set timeout=300 for long builds/scripts — you'll still get the result in seconds if it's fast. Prefer foreground for short commands.\nBackground: Set background=true to get a session_id. Two patterns:\n  (1) Long-lived processes that never exit (servers, watchers).\n  (2) Long-running tasks with notify_on_complete=true — you can keep working on other things and the system auto-notifies you when the task finishes. Great for test suites, builds, deployments, or anything that takes more than a minute.\nFor servers/watchers, do NOT use shell-level background wrappers (nohup/disown/setsid/trailing '&') in foreground mode. Use background=true so Hermes can track lifecycle and output.\nAfter starting a server, verify readiness with a health check or log signal, then run tests in a separate terminal() call. Avoid blind sleep loops.\nUse process(action=\"poll\") for progress checks, process(action=\"wait\") to block until done.\nWorking directory: Use 'workdir' for per-command cwd.\nPTY mode: Set pty=true for interactive CLI tools (Codex, Claude Code, Python REPL).\n\nDo NOT use vim/nano/interactive tools without pty=true — they hang without a pseudo-terminal. Pipe git output to cat if it might page.\n",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "The command to execute on the VM"
+            },
+            "background": {
+              "type": "boolean",
+              "description": "Run the command in the background. Two patterns: (1) Long-lived processes that never exit (servers, watchers). (2) Long-running tasks paired with notify_on_complete=true — you can keep working and get notified when the task finishes. For short commands, prefer foreground with a generous timeout instead.",
+              "default": false
+            },
+            "timeout": {
+              "type": "integer",
+              "description": "Max seconds to wait (default: 180, foreground max: 600). Returns INSTANTLY when command finishes — set high for long tasks, you won't wait unnecessarily. Foreground timeout above 600s is rejected; use background=true for longer commands.",
+              "minimum": 1
+            },
+            "workdir": {
+              "type": "string",
+              "description": "Working directory for this command (absolute path). Defaults to the session working directory."
+            },
+            "pty": {
+              "type": "boolean",
+              "description": "Run in pseudo-terminal (PTY) mode for interactive CLI tools like Codex, Claude Code, or Python REPL. Only works with local and SSH backends. Default: false.",
+              "default": false
+            },
+            "notify_on_complete": {
+              "type": "boolean",
+              "description": "When true (and background=true), you'll be automatically notified exactly once when the process finishes. **This is the right choice for almost every long-running task** — tests, builds, deployments, multi-item batch jobs, anything that takes over a minute and has a defined end. Use this and keep working on other things; the system notifies you on exit. MUTUALLY EXCLUSIVE with watch_patterns — when both are set, watch_patterns is dropped.",
+              "default": false
+            },
+            "watch_patterns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Strings to watch for in background process output. HARD RATE LIMIT: at most 1 notification per 15 seconds per process — matches arriving inside the cooldown are dropped. After 3 consecutive 15-second windows with dropped matches, watch_patterns is automatically disabled for that process and promoted to notify_on_complete behavior (one notification on exit, no more mid-process spam). USE ONLY for truly rare, one-shot mid-process signals on LONG-LIVED processes that will never exit on their own — e.g. ['Application startup complete'] on a server so you know when to hit its endpoint, or ['migration done'] on a daemon. DO NOT use for: (1) end-of-run markers like 'DONE'/'PASS' — use notify_on_complete instead; (2) error patterns like 'ERROR'/'Traceback' in loops or multi-item batch jobs — they fire on every iteration and you'll hit the strike limit fast; (3) anything you'd ever combine with notify_on_complete. When in doubt, choose notify_on_complete. MUTUALLY EXCLUSIVE with notify_on_complete — set one, not both."
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "web_extract",
+        "description": "Extract content from web page URLs. Returns page content in markdown format. Also works with PDF URLs (arxiv papers, documents, etc.) — pass the PDF link directly and it converts to markdown text. Pages under 5000 chars return full markdown; larger pages are LLM-summarized and capped at ~5000 chars per page. Pages over 2M chars are refused. If a URL fails or times out, use the browser tool to access it instead.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "urls": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of URLs to extract content from (max 5 URLs per call)",
+              "maxItems": 5
+            }
+          },
+          "required": [
+            "urls"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "web_search",
+        "description": "Search the web for information. Returns up to 5 results by default with titles, URLs, and descriptions. The query is passed through to the configured backend, so operators such as site:domain, filetype:pdf, intitle:word, -term, and \"exact phrase\" may work when the backend supports them.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The search query to look up on the web. You may include backend-supported operators such as site:example.com, filetype:pdf, intitle:word, -term, or \"exact phrase\"."
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Maximum number of results to return. Defaults to 5.",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 5
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    }
+  ],
+  "message_count": 14,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Research the Hermes webhook, hook system, profile, and MCP documentation to understand how to set them up"
+    },
+    {
+      "role": "assistant",
+      "content": "I'll research the Hermes documentation on webhooks, hooks, profiles, and MCP. Let me start by fetching all four documentation pages and searching for community examples.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_nnGyhSp7RfKl4GUKpIAY9664",
+          "call_id": "call_00_nnGyhSp7RfKl4GUKpIAY9664",
+          "response_item_id": "fc_00_nnGyhSp7RfKl4GUKpIAY9664",
+          "type": "function",
+          "function": {
+            "name": "web_extract",
+            "arguments": "{\"urls\": [\"[REDACTED_WEBHOOK]", \"https://hermes-agent.nousresearch.com/docs/guides/hooks\", \"https://hermes-agent.nousresearch.com/docs/guides/profiles\", \"https://hermes-agent.nousresearch.com/docs/guides/mcp\"]}"
+          }
+        },
+        {
+          "id": "call_01_48nr8oFCUUpiHljd34VV4618",
+          "call_id": "call_01_48nr8oFCUUpiHljd34VV4618",
+          "response_item_id": "fc_01_48nr8oFCUUpiHljd34VV4618",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\": \"hermes agent webhook setup guide\", \"limit\": 5}"
+          }
+        },
+        {
+          "id": "call_02_1ejRCFPdgQ66NkHLiRDC0824",
+          "call_id": "call_02_1ejRCFPdgQ66NkHLiRDC0824",
+          "response_item_id": "fc_02_1ejRCFPdgQ66NkHLiRDC0824",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\": \"hermes agent profile create tutorial\", \"limit\": 5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "web_extract",
+      "content": "{\"error\": \"Content was inaccessible or not found\"}",
+      "tool_call_id": "call_00_nnGyhSp7RfKl4GUKpIAY9664"
+    },
+    {
+      "role": "tool",
+      "name": "web_search",
+      "content": "{\n  \"success\": true,\n  \"data\": {\n    \"web\": [\n      {\n        \"url\": \"[REDACTED_WEBHOOK]",\n        \"title\": \"website/docs/user-guide/messaging/webhooks.md at main · NousResearch/hermes-agent\",\n        \"description\": \"## Quick Start\\n[...]\\n1. Enable via `hermes gateway setup` or environment variables\\n2. Define routes in `config.yaml` **or** create them dynamically with `hermes webhook subscribe`\\n3. Point your service at `[REDACTED_WEBHOOK] are two ways to enable the webhook adapter.\\n[...]\\n### Via setup wizard\\n[...]\\n```bash\\nhermes gateway setup\\n[...]\\nFollow the prompts to enable webhooks, set the port, and set a global HMAC secret.\\n[...]\\n### Via environment variables\\n[...]\\nAdd to `~/.hermes/.env`:\\n[...]\\n```bash\\nWEBHOOK_ENABLED=true\\nWEBHOOK_PORT=8644        # default\\nWEBHOOK_SECRET=your-global-secret\\n[...]\\n### Verify the server\\n[...]\\nOnce the gateway is running:\\n[...]\\n```bash\\ncurl http://localhost:8644/health\\n[...]\\nExpected response:\\n[...]\\nplatform\\\": \\\"webhook\\\"}\\n[...]\\n## Configuring Routes {#configuring-routes}\\n[...]\\nRoutes define how different webhook sources are handled. Each route is a named entry under `platforms.webhook.extra.routes` in your `config.yaml`.\\n[...]\\n| Property | Required | Description |\\n[...]\\n|----------|----------|-------------|\\n[...]\\n| `events` | No | List of event types to\\n[...]\\n(e.g. `[\\\"pull_request\\\"]`). If empty, all events are accepted. Event type is read from `X-GitHub-Event`, `X-GitLab-Event`, or `event_type` in\\n[...]\\npayload. |\\n[...]\\n| `secret` | **Yes** | HMAC secret for signature validation. Falls back to the global `secret` if not set on the route. Set to `\\\"INSECURE_NO_AUTH\\\"` for testing only (skips validation). |\\n[...]\\n| `prompt` | No | Template string with dot-notation payload access (e\\n[...]\\ng. `{pull_request.title}`). If omitted,\\n[...]\\nfull JSON payload is dumped into the prompt. |\\n[...]\\n| `deliver` | No | Where to send the response: `github_comment`, `telegram`, `discord`, `slack`, `signal`, `sms`, `whatsapp`, `matrix`, `mattermost`, `homeassistant`, `email`, `dingtalk`, `feishu`, `wecom`, `weixin`, `bluebubbles`, `qqbot`, or `log` (default). |\\n[...]\\n| `deliver_extra` | No | Additional delivery config — keys depend on `deliver` type (e.g. `repo`, `pr_number`, `chat_id`). Values support the same `{dot.notation}` templates as `prompt`. |\\n[...]\\n| `deliver_only` | No | If `true`, skip the agent entirely — the rendered `prompt` template becomes the literal message that gets delivered. Zero LLM cost, sub-second delivery. See Direct Delivery Mode for use cases. Requires `deliver` to be a real target (not `log`). |\\n[...]\\n### Full example\\n[...]\\n## GitHub PR Review (Step by Step) {#github-pr-review}\\n[...]\\n1. Create the webhook in GitHub\\n[...]\\nGo to your repository\\n[...]\\n[REDACTED_WEBHOOK] **Content type\\n[...]\\nto `application/json\\n[...]\\nthe route config\\n[...]\\n` CLI is authenticated\\n[...]\\n## GitLab Webhook Setup {#gitlab-webhook-setup}\\n[...]\\n### 1. Create the webhook in GitLab\\n[...]\\n1. Go to your project → **Settings** → **Webhooks**\\n[...]\\n2. Set the **URL** to `[REDACTED_WEBHOOK] Enter your **Secret token**\\n[...]\\n4. Select **Merge request events** (and any other events you want)\\n[...]\\n5. Click **Add webhook**\\n[...]\\n2. Add the route config\\n[...]\\nplatforms:\\n  webhook:\\n    enabled\\n[...]\\n|\\n[...]\\nrequest:\\n            Project: {project.path_with_namespace\\n[...]\\n!{object_attributes.iid}: {object_attributes.title\\n[...]\\nAuthor: {object_attributes.last_commit.author.name}\\n[...]\\nURL: {object_attributes.url}\\n            Action: {object_attributes.action}\\n          deliver: \\\"log\\\"\\n[...]\\n## Delivery Options {#delivery-options}\\n[...]\\n## Dynamic Subscriptions (CLI) {#dynamic-subscriptions}\\n[...]\\nIn addition to static routes in `config.yaml`, you can create webhook subscriptions dynamically using\\n[...]\\n`hermes webhook` CLI command. This is especially useful when\\n[...]\\nagent itself needs to set up event-driven triggers.\\n[...]\\n## Troubleshooting {#troubleshooting}\\n[...]\\nWebhook not\\n[...]\\n## Environment Variables {#environment-variables}\\n[...]\\n----------|-------------|---------\\n[...]\\n644\",\n        \"position\": 1\n      },\n      {\n        \"url\": \"[REDACTED_WEBHOOK]",\n        \"title\": \"Webhook Subscriptions — Webhook subscriptions: event-driven agent runs | Hermes Agent\",\n        \"description\": \"# Webhook Subscriptions\\n[...]\\nCreate dynamic webhook subscriptions so external services (GitHub, GitLab, Stripe, CI/CD, IoT sensors, monitoring tools) can trigger Hermes agent runs by POSTing events to a URL.\\n[...]\\n## Setup (Required First)​\\n[...]\\nThe webhook platform must be enabled before subscriptions can be created. Check with:\\n[...]\\n```bash\\nhermes webhook list\\n```\\n[...]\\nIf it says \\\"Webhook platform is not enabled\\\", set it up:\\n[...]\\n### Option 1: Setup wizard​\\n[...]\\n```bash\\nhermes gateway setup\\n```\\n[...]\\nFollow the prompts to enable webhooks, set the port, and set a global HMAC secret.\\n[...]\\n### Option 2: Manual config​\\n[...]\\nAdd to`~/.hermes/config.yaml`:\\n[...]\\n```yaml\\nplatforms:  webhook:    enabled: true    extra:      host: \\\"0.0.0.0\\\"      port: 8644      secret: \\\"generate-a-strong-secret-here\\\"\\n```\\n[...]\\n### Option 3: Environment variables​\\n[...]\\nAdd to`~/.hermes/.env`:\\n[...]\\n```bash\\nWEBHOOK_ENABLED=trueWEBHOOK_PORT=8644WEBHOOK_SECRET=generate-a-strong-secret-here\\n```\\n[...]\\nAfter configuration, start (or restart) the gateway:\\n[...]\\n```bash\\nhermes gateway run# Or if using systemd:systemctl --user restart hermes-gateway\\n```\\n[...]\\nVerify it's running:\\n[...]\\n```bash\\ncurl http://localhost:8644/health\\n```\\n[...]\\n## Commands​\\n[...]\\nAll management is via the`hermes webhook` CLI command:\\n[...]\\n### Create a subscription​\\n[...]\\n```bash\\nhermes webhook subscribe <name> \\\\  --prompt \\\"Prompt template with {payload.fields}\\\" \\\\  --events \\\"event1,event2\\\" \\\\  --description \\\"What this does\\\" \\\\  --skills \\\"skill1,skill2\\\" \\\\  --deliver telegram \\\\  --deliver-chat-id \\\"12345\\\" \\\\  --secret \\\"optional-custom-secret\\\"\\n```\\n[...]\\nReturns the webhook URL and HMAC secret. The user configures their service to POST to that URL.\\n[...]\\n### List subscriptions​\\n[...]\\n```bash\\nhermes webhook list\\n[...]\\n### Remove a subscription​\\n[...]\\n```bash\\nhermes webhook remove <name>\\n[...]\\n### Test a subscription​\\n[...]\\n```bash\\nhermes webhook test <name>hermes webhook test <name> --payload '{\\\"key\\\": \\\"value\\\"}'\\n[...]\\n## Common Patterns​\\n[...]\\n### Direct delivery (no agent, zero LLM cost)​\\n[...]\\nFor use cases where you just want to push a notification through to a user's chat — no reasoning, no agent loop — add`--deliver-only`. The rendered`--prompt` template becomes the literal message body and is dispatched directly to the target adapter.\\n[...]\\n```bash\\n[...]\\n## Security​\\n[...]\\n- Each subscription gets an auto-generated HMAC-SHA256 secret (or provide your own with`--secret`)\\n- The webhook adapter validates signatures on every incoming POST\\n- Static routes from config.yaml cannot be overwritten by dynamic subscriptions\\n- Subscriptions persist to`~/.hermes/webhook_subscriptions.json`\\n[...]\\n## How It Works​\\n[...]\\n1. `hermes webhook subscribe` writes to`~/.hermes/webhook_subscriptions.json`\\n2. The webhook adapter hot-reloads this file on each incoming request (mtime-gated, negligible overhead)\\n3. When a POST arrives matching a route, the adapter formats the prompt and triggers an agent run\\n4. The agent's response is delivered to the configured target (Telegram, Discord, GitHub comment, etc.)\\n[...]\\n## Troubleshooting​\\n[...]\\nIf webhooks aren't working:\\n[...]\\n1. Is the gateway running? Check with`systemctl --user status hermes-gateway` or`ps aux | grep gateway`\\n2. Is the webhook server listening?`curl http://localhost:8644/health` should return`{\\\"status\\\": \\\"ok\\\"}`\\n3. Check gateway logs:`grep webhook ~/.hermes/logs/gateway.log | tail -20`\\n4. Signature mismatch? Verify the secret in your service matches the one from`hermes webhook list`. GitHub sends`X-Hub-Signature-256`, GitLab sends`X-Gitlab-Token`.\\n5. Firewall/NAT? The webhook URL must be reachable from the service. For local development, use a tunnel (ngrok, cloudflared).\\n6. Wrong event type? Check`--events` filter matches what the service sends. Use`hermes webhook test ` to verify the route works.\",\n        \"position\": 2\n      },\n      {\n        \"url\": \"[REDACTED_WEBHOOK]",\n        \"title\": \"Webhooks | Hermes Agent - nous research\",\n        \"description\": \"Receive events from external services (GitHub, GitLab, JIRA, Stripe, etc.) and trigger Hermes agent runs automatically. The webhook adapter runs an HTTP server that accepts POST requests, validates HMAC signatures, transforms payloads into agent prompts, and routes responses back to the source or to another configured platform.\\n[...]\\n## Quick Start​\\n[...]\\n1. Enable via`hermes gateway setup` or environment variables\\n2. Define routes in`config.yaml` or create them dynamically with`hermes webhook subscribe`\\n3. Point your service at`[REDACTED_WEBHOOK] `\\n[...]\\n## Setup​\\n[...]\\nThere are two ways to enable the webhook adapter.\\n[...]\\n### Via setup wizard​\\n[...]\\n```bash\\nhermes gateway setup\\n```\\n[...]\\nFollow the prompts to enable webhooks, set the port, and set a global HMAC secret.\\n[...]\\n### Via environment variables​\\n[...]\\nAdd to`~/.hermes/.env`:\\n[...]\\n```bash\\nWEBHOOK_ENABLED=trueWEBHOOK_PORT=8644        # defaultWEBHOOK_SECRET=your-global-secret\\n```\\n[...]\\n### Verify the server​\\n[...]\\nOnce the gateway is running:\\n[...]\\n```bash\\ncurl http://localhost:8644/health\\n```\\n[...]\\n## Configuring Routes​\\n[...]\\nRoutes define how different webhook sources are handled. Each route is a named entry under`platforms.webhook.extra.routes` in your`config.yaml`.\\n[...]\\n| Property | Required | Description |\\n| --- | --- | --- |\\n| `events` | No | List of event types to accept (e.g.`[\\\"pull_request\\\"]`). If empty, all events are accepted. Event type is read from`X-GitHub-Event`,`X-GitLab-Event`, or`event_type` in the payload. |\\n[...]\\n| `secret` | Yes | HMAC secret for signature validation. Falls back to the global`secret` if not set on the route. Set to`\\\"INSECURE_NO_AUTH\\\"` for testing only (skips validation). |\\n[...]\\n| `prompt` | No | Template string with dot-notation payload access (e.g.`{pull_request.title}`). If omitted, the full JSON payload is dumped into the prompt. |\\n[...]\\n| `skills` | No | List of skill names to load for the agent run. |\\n[...]\\n| `deliver` | No | Where to send the response:`github_comment`,`telegram`,`discord`,`slack`,`signal`,`sms`,`whatsapp`,`matrix`,`mattermost`,`homeassistant`,`email`,`dingtalk`,`feishu`,`wecom`,`weixin`,`bluebubbles`,`qqbot`, or`log`(default). |\\n[...]\\n| `deliver_extra` | No | Additional delivery config — keys depend on`deliver` type (e.g.`repo`,`pr_number`,`chat_id`). Values support the same`{dot.notation}` templates as`prompt`. |\\n[...]\\n| `deliver_only` | No | If`true`, skip the agent entirely — the rendered`prompt` template becomes the literal message that gets delivered. Zero LLM cost, sub-second delivery. See Direct Delivery Mode for use cases. Requires`deliver` to be a real target (not`log`). |\\n[...]\\n8644\\n[...]\\ndeliver:\\n[...]\\n## GitHub PR Review (Step by Step)​\\n[...]\\nGo to your repository\\n[...]\\nhttp://your\\n[...]\\nserver:8644\\n[...]\\nSet Content type to`application/json`\\n[...]\\nSet Secret to match your route config (e.g.`\\n[...]\\n-webhook-secret\\n[...]\\n## GitLab Webhook Setup​\\n[...]\\n864\\n[...]\\nobject_attributes\\n[...]\\n## Delivery Options​\\n[...]\\n## Dynamic Subscriptions (CLI)​\\n[...]\\nIn addition to static routes in`config.yaml`, you can create webhook subscriptions dynamically using the`hermes webhook` CLI command. This is especially useful when the agent itself needs to set up event-driven triggers.\\n[...]\\n456\\n[...]\\nThis returns the webhook URL and an\\n[...]\\n## Troubleshooting​\\n[...]\\n### Webhook not arriving​\\n[...]\\nthe webhook source\\n[...]\\n864\\n[...]\\nthe URL path\\n[...]\\n:`[REDACTED_WEBHOOK] Environment Variables​\\n[...]\\n| Variable | Description | Default |\\n| --- | --- | --- |\\n| `WEBHOOK_ENABLED` | Enable the webhook platform adapter | `false` |\\n| `WEBHOOK_PORT` | HTTP server port for receiving webhooks | `8644` |\\n| `WEBHOOK_SECRET` | Global HMAC secret (used as fallback when routes don't specify their own) | (none) |\",\n        \"position\": 3\n      },\n      {\n        \"url\": \"[REDACTED_WEBHOOK]",\n        \"title\": \"Webhooks | Hermes Agent\",\n        \"description\": \"Receive events from external services (GitHub, GitLab, JIRA, Stripe, etc.) and trigger Hermes agent runs automatically. The webhook adapter runs an HTTP server that accepts POST requests, validates HMAC signatures, transforms payloads into agent prompts, and routes responses back to the source or to another configured platform.\\n[...]\\n## Quick Start​\\n[...]\\n1. Enable via`hermes gateway setup` or environment variables\\n2. Define routes in`config.yaml` or create them dynamically with`hermes webhook subscribe`\\n3. Point your service at`[REDACTED_WEBHOOK] `\\n[...]\\n## Setup​\\n[...]\\nThere are two ways to enable the webhook adapter.\\n[...]\\n### Via setup wizard​\\n[...]\\n```bash\\nhermes gateway setup\\n```\\n[...]\\nFollow the prompts to enable webhooks, set the port, and set a global HMAC secret.\\n[...]\\n### Via environment variables​\\n[...]\\nAdd to`~/.hermes/.env`:\\n[...]\\n```bash\\nWEBHOOK_ENABLED=trueWEBHOOK_PORT=8644        # defaultWEBHOOK_SECRET=your-global-secret\\n```\\n[...]\\n### Verify the server​\\n[...]\\nOnce the gateway is running:\\n[...]\\n```bash\\ncurl http://localhost:8644/health\\n```\\n[...]\\n## Configuring Routes​\\n[...]\\nRoutes define how different webhook sources are handled. Each route is a named entry under`platforms.webhook.extra.routes` in your`config.yaml`.\\n[...]\\n| Property | Required | Description |\\n| --- | --- | --- |\\n| `events` | No | List of event types to accept (e.g.`[\\\"pull_request\\\"]`). If empty, all events are accepted. Event type is read from`X-GitHub-Event`,`X-GitLab-Event`, or`event_type` in the payload. |\\n[...]\\n| `secret` | Yes | HMAC secret for signature validation. Falls back to the global`secret` if not set on the route. Set to`\\\"INSECURE_NO_AUTH\\\"` for testing only (skips validation). |\\n[...]\\n| `prompt` | No | Template string with dot-notation payload access (e.g.`{pull_request.title}`). If omitted, the full JSON payload is dumped into the prompt. |\\n[...]\\n| `skills` | No | List of skill names to load for the agent run. |\\n[...]\\n| `deliver` | No | Where to send the response:`github_comment`,`telegram`,`discord`,`slack`,`signal`,`sms`,`whatsapp`,`matrix`,`mattermost`,`homeassistant`,`email`,`dingtalk`,`feishu`,`wecom`,`weixin`,`bluebubbles`,`qqbot`, or`log`(default). |\\n[...]\\n| `deliver_extra` | No | Additional delivery config — keys depend on`deliver` type (e.g.`repo`,`pr_number`,`chat_id`). Values support the same`{dot.notation}` templates as`prompt`. |\\n[...]\\n| `deliver_only` | No | If`true`, skip the agent entirely — the rendered`prompt` template becomes the literal message that gets delivered. Zero LLM cost, sub-second delivery. See Direct Delivery Mode for use cases. Requires`deliver` to be a real target (not`log`). |\\n[...]\\n## GitHub PR Review (Step by Step)​\\n[...]\\nGo to your repository\\n[...]\\n[REDACTED_WEBHOOK] Content type to`application/json`\\n[...]\\nSet Secret to match your route config (e.g.`\\n[...]\\n-webhook-secret\\n[...]\\n## GitLab Webhook Setup​\\n[...]\\nto your project\\n[...]\\nSet the URL\\n[...]\\n`http://\\n[...]\\nserver:8644\\n[...]\\nEnter your Secret token\\n[...]\\nAdd the route config\\n[...]\\n{object_attributes.url\\n[...]\\nAction: {object\\n[...]\\nattributes.action\\n[...]\\n## Delivery Options​\\n[...]\\n## Dynamic Subscriptions (CLI)​\\n[...]\\nIn addition to static routes in`config.yaml`, you can create webhook subscriptions dynamically using the`hermes webhook` CLI command. This is especially useful when\\n[...]\\nagent itself needs to set up event-driven triggers.\\n[...]\\nThis returns the webhook URL and an\\n[...]\\n## Troubleshooting​\\n[...]\\nWebhook not arriving​\\n[...]\\nthe webhook source\\n[...]\\n864\\n[...]\\nthe URL path\\n[...]\\n:`[REDACTED_WEBHOOK] Environment Variables​\\n[...]\\n| Variable | Description | Default |\\n| --- | --- | --- |\\n| `WEBHOOK_ENABLED` | Enable the webhook platform adapter | `false` |\\n| `WEBHOOK_PORT` | HTTP server port for receiving webhooks | `8644` |\\n| `WEBHOOK_SECRET` | Global HMAC secret (used as fallback when routes don't specify their own) | (none) |\",\n        \"position\": 4\n      },\n      {\n        \"url\": \"https://hermesagent.help/posts/hermes-agent-messaging-platform-setup\",\n        \"title\": \"Hermes Agent Messaging Platform Setup: Complete Guide for 17 Platforms\",\n        \"description\": \"Hermes Agent supports 17 messaging platforms, and you can run multiple platforms simultaneously on a single Gateway instance. This guide provides complete configuration steps for each platform, helping you quickly connect your AI assistant to your preferred communication tools.\\n[...]\\nHermes provides two configuration methods:\\n[...]\\n1. Interactive Wizard: Run`hermes gateway setup`, follow prompts to select platforms and enter credentials\\n2. Manual Editing: Directly edit the`~/.hermes/.env` file\\n[...]\\n### Startup Methods\\n[...]\\n- Foreground:`hermes gateway run`\\n- Install as System Service:`hermes gateway install`(supports systemd/launchd)\\n[...]\\n### Common Environment Variables\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\n[...]\\n### Optional Configuration\\n[...]\\n```bash\\nTELEGRAM_WEBHOOK_URL=[REDACTED_WEBHOOK] Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n- WebSocket Mode (recommended): No public network address needed\\n- Webhook Mode: Requires callback URL configuration\\n[...]\\n# Edit ~/.hermes/.env\\n[...]\\nhermes gateway\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n# Edit ~/.hermes/.env\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.her\\n[...]\\n/.env\\nher\\n[...]\\n### Required Environment Variables\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n# Edit ~/.hermes/.env\\nher\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n\\n```\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.her\\n[...]\\n/.env\\nher\\n[...]\\nRequired Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\nConfigure Webhook\\n[...]\\n- Set message\\n[...]\\n:`https://your-server:8080\\n[...]\\n```bash\\n# Edit ~/.hermes/.env\\nhermes gateway\\n\\n```\\n[...]\\n### Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n# Edit ~/.her\\n[...]\\n/.env\\nher\\n[...]\\n## 16. Webhooks\\n[...]\\n### Required Environment Variables\\n[...]\\n```bash\\nWEBHOOK_ENABLED=true\\nWEBHOOK_SECRET=your_hmac_secret\\n\\n```\\n[...]\\n### Configuration Steps\\n[...]\\nEnable Webhook in .env\\n[...]\\n- Define in`config.yaml`\\n- Or use`hermes webhook subscribe` for dynamic creation\\n[...]\\nExternal Service Calls\\n[...]\\n```bash\\nPOST [REDACTED_WEBHOOK] Required Environment Variables\\n[...]\\n### Configuration Steps\\n[...]\\n# Edit ~/.her\",\n        \"position\": 5\n      }\n    ]\n  }\n}",
+      "tool_call_id": "call_01_48nr8oFCUUpiHljd34VV4618"
+    },
+    {
+      "role": "tool",
+      "name": "web_search",
+      "content": "{\n  \"success\": true,\n  \"data\": {\n    \"web\": [\n      {\n        \"url\": \"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/profiles.md\",\n        \"title\": \"website/docs/user-guide/profiles.md at main · NousResearch/hermes-agent\",\n        \"description\": \"# Profiles: Running Multiple Agents\\n[...]\\nRun multiple independent Hermes agents on the same machine — each with its own config, API keys, memory, sessions, skills\\n[...]\\nand gateway state\\n[...]\\nA profile is a separate Hermes home directory. Each profile gets its own directory containing its own `config.yaml`, `.env`, `SOUL.md`, memories, sessions, skills, cron jobs, and state database. Profiles let you run separate agents for different purposes — a coding assistant, a personal bot, a research agent — without mixing up Hermes state.\\n[...]\\nWhen you create a profile, it automatically becomes its own command. Create a profile called `coder` and you immediately have `coder chat`, `coder setup`, `coder gateway start`, etc.\\n[...]\\n## Quick start\\n[...]\\n```bash\\nhermes profile create coder       # creates profile + \\\"coder\\\" command alias\\ncoder setup                       # configure API keys and model\\ncoder chat                        # start chatting\\n```\\n[...]\\nThat's it. `coder` is now its own Hermes profile with its own config, memory, and state.\\n[...]\\n## Creating a profile\\n[...]\\n### Blank profile\\n[...]\\n```bash\\nhermes profile create mybot\\n```\\n[...]\\nCreates a fresh profile with bundled skills seeded. Run `mybot setup` to configure API keys, model, and gateway tokens.\\n[...]\\n### Clone config only (`--clone`)\\n[...]\\n```bash\\nhermes profile create work --clone\\n```\\n\\nCopies your current profile's `config.yaml`, `.env`, and `SOUL.md` into the new profile. Same API keys and model, but fresh sessions and memory. Edit `~/.hermes/profiles/work/.env` for different API keys, or `~/.hermes/profiles/work/SOUL.md` for a different personality.\\n[...]\\n### Clone everything (`--clone-all`)\\n[...]\\n```bash\\nhermes profile create backup --clone-all\\n```\\n[...]\\nCopies **everything** — config, API keys, personality, all memories, full session history, skills, cron jobs, plugins. A complete snapshot. Useful for backups or forking an agent that already has context.\\n[...]\\n### Clone from a specific profile\\n[...]\\n```bash\\nhermes profile create work --clone --clone-from coder\\n```\\n[...]\\n## Using profiles\\n[...]\\n### Command aliases\\n[...]\\nEvery profile automatically gets a command alias at `~/.local/bin/ `:\\n[...]\\n```bash\\ncoder chat                    # chat with the coder agent\\ncoder setup                   # configure coder's settings\\ncoder gateway start           # start coder's gateway\\ncoder doctor                  # check coder's health\\ncoder skills list             # list coder's skills\\ncoder config set model.default anthropic/claude-sonnet-4\\n[...]\\nThe alias works with every hermes subcommand — it's just `hermes -p ` under\\n[...]\\n### The `-p` flag\\n[...]\\nYou can also target a profile explicitly with any command:\\n[...]\\n```bash\\nhermes -p coder chat\\nhermes --profile=coder doctor\\nhermes chat -p coder -q \\\"hello\\\"    # works in any position\\n[...]\\n### Sticky default (`hermes profile use`)\\n[...]\\n# configures coder\\n[...]\\n## Configuring profiles\\n[...]\\n```bash\\ncoder config set model.default anthropic/claude-sonnet-4\\necho \\\"You are a focused coding assistant.\\\" > ~/.hermes/profiles/coder/SOUL.\",\n        \"position\": 1\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/reference/profile-commands\",\n        \"title\": \"Profile Commands Reference | Hermes Agent\",\n        \"description\": \"## hermes profile​\\n[...]\\n```bash\\nhermes profile <subcommand>\\n[...]\\nTop-level command for managing profiles. Running`hermes profile` without a subcommand shows help.\\n[...]\\n| Subcommand | Description |\\n| --- | --- |\\n| `list` | List all profiles. |\\n| `use` | Set the active (default) profile. |\\n| `create` | Create a new profile. |\\n| `delete` | Delete a profile. |\\n| `show` | Show details about a profile. |\\n| `alias` | Regenerate the shell alias for a profile. |\\n| `rename` | Rename a profile. |\\n| `export` | Export a profile to a tar.gz archive. |\\n| `import` | Import a profile from a tar.gz archive. |\\n| `install` | Install a profile distribution from a git URL or local directory. See Profile Distributions. |\\n| `update` | Re-pull a distribution-managed profile and re-apply its bundle. |\\n| `info` | Show distribution metadata for a profile (origin URL, commit, last update). |\\n[...]\\n## hermes profile create​\\n[...]\\n```bash\\nhermes profile create <name> [options]\\n```\\n[...]\\nCreates a new profile.\\n[...]\\n| Argument / Option | Description |\\n| --- | --- |\\n| ` ` | Name for the new profile. Must be a valid directory name (alphanumeric, hyphens, underscores). |\\n| `--clone` | Copy`config.yaml`,`.env`, and`SOUL.md` from the current profile. |\\n| `--clone-all` | Copy everything (config, memories, skills, sessions, state) from the current profile. |\\n| `--clone-from ` | Clone from a specific profile instead of the current one. Used with`--clone` or`--clone-all`. |\\n| `--no-alias` | Skip wrapper script creation. |\\n[...]\\nCreating a profile does not make that profile directory the default project/workspace directory for terminal commands. If you want a profile to start in a specific project, set`terminal.cwd` in that profile's`config.yaml`.\\n[...]\\n```bash\\n# Blank profile — needs full setuphermes profile create mybot# Clone config only from current profilehermes profile create work --clone# Clone everything from current profilehermes profile create backup --clone-all# Clone config from a specific profilehermes profile create work2 --clone --clone-from work\",\n        \"position\": 2\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/profile-distributions\",\n        \"title\": \"Profile Distributions: Share a Whole Agent | Hermes Agent\",\n        \"description\": \"A profile distribution packages a complete\\n[...]\\nas a git repository. Anyone with access to\\n[...]\\nrepo can install the whole\\n[...]\\nwith one command, update it in place, and keep their own memories, sessions, and API keys untouched.\\n[...]\\n## For authors: publishing a distribution​\\n[...]\\n### Step 1 — Start from a working profile​\\n[...]\\nBuild and refine the agent like any other profile:\\n[...]\\n```bash\\nhermes profile create research-botresearch-bot setup                    # configure model, API keys# Edit ~/.hermes/profiles/research-bot/SOUL.md# Install skills, wire up MCP servers, schedule cron jobs, etc.research-bot chat                     # dogfood until it feels right\\n```\\n[...]\\n### Step 2 — Add a distribution.yaml​\\n\\nCreate`~/.hermes/profiles/research-bot/distribution.yaml`:\\n[...]\\n```yaml\\nname: research-botversion: 1.0.0description: \\\"Autonomous research assistant with arXiv and web tools\\\"hermes_requires: \\\">=0.12.0\\\"author: \\\"Your Name\\\"license: \\\"MIT\\\"# Tell installers which env vars the agent needs. These are checked against# the installer's shell and existing .env file so they don't get nagged# about keys they already have configured.env_requires:  - name: OPENAI_API_KEY    description: \\\"OpenAI API key (for model access)\\\"    required: true  - name: SERPAPI_KEY    description: \\\"SerpAPI key for web search\\\"    required: false    default: \\\"\\\"\\n```\\n[...]\\nThat's the whole manifest. Every field except`name` has a sensible default.\\n[...]\\n### Step 3 — Push to a git repo​\\n[...]\\n```bash\\ncd ~/.hermes/profiles/research-botgit initgit add .git commit -m \\\"v1.0.0\\\"git remote add origin [REDACTED_EMAIL]:you/research-bot.gitgit tag v1.0.0git push -u origin main --tags\\n```\\n[...]\\nThe repo is now a distribution. Anyone with access can install it.\\n[...]\\n### Step 4 — Tag versioned releases​\\n[...]\\n# Edit distribution.yaml\\n[...]\\ndistribution.yaml SOUL\\n[...]\\nresearch SOUL\\n[...]\\n## For installers: using a distribution​\\n[...]\\n### Install​\\n[...]\\n```bash\\nhermes profile install github.com/you/research-bot --alias\\n```\\n[...]\\nWhat happens:\\n[...]\\n1. Clones the repo into a temporary directory.\\n2. Reads`distribution.yaml`, shows you the manifest (name, version, description, author, required env vars).\\n3. Checks each required env var against your shell environment and the target profile's existing`.env`. Marks each as`✓ set` or`needs setting` so you know exactly what to configure.\\n4. Asks for confirmation. Pass`-y`/`--yes` to skip.\\n5. Copies distribution-owned files into`~/.hermes/profiles/research-bot/`(or wherever the manifest's`name` resolves).\\n6. Writes`.env.EXAMPLE` with the required keys commented out — copy to`.env` and fill in.\\n7. With`--alias`, creates a wrapper so you can run`research-bot chat` directly.\\n[...]\\n### Source types​\\n[...]\\nAny git URL works:\\n[...]\\n```bash\\n# GitHub shorthandher\\n[...]\\nprofile install github.com/you/research-bot# Full HTTPS\\n[...]\\nprofile install https\\n[...]\\n-hosted, GitLab, Gitea, Forgejo\\n[...]\\nany Git hosthermes profile install\\n[...]\\n/team/research-bot.git# Private repo using your configured git authhermes profile install\\n[...]\\nprofile install ~/my\\n[...]\\nprofile-in-\\n[...]\\n### Override the profile name​\\n[...]\\n### Fill in env vars​\\n\\nAfter install, the agent's profile contains a`.env.EXAMPLE`:\\n[...]\\n```text\\n# Environment variables required by this Hermes distribution.# Copy to `.env` and fill in your own values before running.# OpenAI API key (for model access)# (required)OPENAI_API_KEY=# SerpAPI key for web search# (optional)# SERPAPI_KEY=\\n[...]\\nCopy it:\\n[...]\\n```bash\\ncp ~/.hermes/profiles/research-bot/.env.EXAMPLE ~/.hermes/profiles/research-bot/.env# Edit .env, paste your real keys\\n[...]\\nRequired keys that were already in your shell environment (e.g.`OPENAI_API_KEY` exported in your`~/.zshrc`) are marked`✓ set` during install — you don't need\\n[...]\\nduplicate them in`.env`.\\n[...]\\n### Check what you installed​\\n[...]\\n### Update​\\n[...]\\n```bash\\nhermes profile update research-bot\",\n        \"position\": 3\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/profiles\",\n        \"title\": \"Profiles: Running Multiple Agents - Hermes Agent\",\n        \"description\": \"A profile is a separate Hermes home directory. Each profile gets its own directory containing its own`config.yaml`,`.env`,`SOUL.md`, memories, sessions, skills, cron jobs, and state database. Profiles let you run separate agents for different purposes — a coding assistant, a personal bot, a research agent — without mixing up Hermes state.\\n[...]\\nWhen you create a profile, it automatically becomes its own command. Create a profile called`coder` and you immediately have`coder chat`,`coder setup`,`coder gateway start`, etc.\\n[...]\\n## Quick start​\\n[...]\\n```bash\\nhermes profile create coder       # creates profile + \\\"coder\\\" command aliascoder setup                       # configure API keys and modelcoder chat                        # start chatting\\n```\\n[...]\\nThat's it.`coder` is now its own Hermes profile with its own config, memory, and state.\\n[...]\\n## Creating a profile​\\n[...]\\n### Blank profile​\\n[...]\\n```bash\\nhermes profile create mybot\\n```\\n[...]\\nCreates a fresh profile with bundled skills seeded. Run`mybot setup` to configure API keys, model, and gateway tokens.\\n[...]\\n### Clone config only (--clone)​\\n[...]\\n```bash\\nhermes profile create work --clone\\n```\\n[...]\\nCopies your current profile's`config.yaml`,`.env`, and`SOUL.md` into the new profile. Same API keys and model, but fresh sessions and memory. Edit`~/.hermes/profiles/work/.env` for different API keys, or`~/.hermes/profiles/work/SOUL.md` for a different personality.\\n[...]\\n### Clone everything (--clone-all)​\\n[...]\\n```bash\\nhermes profile create backup --clone-all\\n```\\n[...]\\nCopies everything — config, API keys, personality, all memories, full session history, skills, cron jobs, plugins. A complete snapshot. Useful for backups or forking an agent that already has context.\\n[...]\\n### Clone from a specific profile​\\n[...]\\n```bash\\nhermes profile create work --clone --clone-from coder\\n```\\n[...]\\n## Using profiles​\\n[...]\\n### Command aliases​\\n[...]\\nEvery profile automatically gets a command alias at`~/.local/bin/ `:\\n[...]\\n```bash\\ncoder chat                    # chat with the coder agentcoder setup                   # configure coder's settingscoder gateway start           # start coder's gatewaycoder doctor                  # check coder's healthcoder skills list             # list coder's skillscoder config set model.default anthropic/claude-sonnet-4\\n[...]\\nThe alias works with every hermes subcommand — it's just`hermes -p ` under the hood.\\n[...]\\n### The -p flag​\\n[...]\\nYou can also target a profile explicitly with any command:\\n[...]\\n```bash\\nhermes -p coder chathermes --profile=coder doctorhermes chat -p coder -q \\\"hello\\\"    # works in any position\\n[...]\\n### Sticky default (hermes profile use)​\\n[...]\\n```bash\\nhermes profile use coderhermes chat                   # now targets coderhermes tools                  # configures coder\\n[...]\\ns toolshermes profile use default    # switch back\\n[...]\\n## Running gateways​\\n[...]\\n## Configuring profiles​\\n[...]\\nEach profile has its own:\\n[...]\\n- `config.yaml`— model, provider, toolsets, all settings\\n- `.env`— API keys, bot tokens\\n- `SOUL.md`— personality and instructions\\n[...]\\n```bash\\ncoder config set model.default anthropic/claude-sonnet-4echo \\\"You are a focused coding assistant.\\\" > ~/.hermes/profiles/coder/SOUL.md\\n[...]\\nIf you want this profile to work in a specific project by default, also set its own`terminal.cwd`:\\n[...]\\n```bash\\ncoder config set terminal\\n[...]\\ncwd /absolute/path/to/\\n[...]\\n## How it works​\\n[...]\\nProfiles use the`HERMES_HOME` environment variable. When you run`coder chat`, the wrapper script sets`HERMES_HOME=~/.hermes/profiles/coder` before launching hermes. Since 119+ files in the codebase resolve paths via`get_hermes_home()`, Hermes state automatically scopes to the profile's directory — config, sessions, memory, skills, state database, gateway PID, logs, and cron jobs.\\n[...]\\nThe default profile is simply`~/.hermes` itself. No migration needed — existing installs work identically.\",\n        \"position\": 4\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/\",\n        \"title\": \"Hermes Agent Documentation | Hermes Agent\",\n        \"description\": \"Hermes Agent Documentation | Hermes Agent\\n[...]\\n| 🚀 Installation | Install in 60 seconds on Linux, macOS, WSL2, or native Windows (early beta) |\\n| --- | --- |\\n| 📖 Quickstart Tutorial | Your first conversation and key features to try |\\n| 🗺️ Learning Path | Find the right docs for your experience level |\\n| ⚙️ Configuration | Config file, providers, models, and options |\\n| 💬 Messaging Gateway | Set up Telegram, Discord, Slack, WhatsApp, Teams, or more |\\n| 🔧 Tools & Toolsets | 70+ built-in tools and how to configure them |\\n| 🧠 Memory System | Persistent memory that grows across sessions |\\n| 📚 Skills System | Procedural memory the agent creates and reuses |\\n| 🔌 MCP Integration | Connect to MCP servers, filter their tools, and extend Hermes safely |\\n| 🧭 Use MCP with Hermes | Practical MCP setup patterns, examples, and tutorials |\\n| 🎙️ Voice Mode | Real-time voice interaction in CLI, Telegram, Discord, and Discord VC |\\n| 🗣️ Use Voice Mode with Hermes | Hands-on setup and usage patterns for Hermes voice workflows |\\n| 🎭 Personality & SOUL.md | Define Hermes' default voice with a global SOUL.md |\\n| 📄 Context Files | Project context files that shape every conversation |\\n| 🔒 Security | Command approval, authorization, container isolation |\\n| 💡 Tips & Best Practices | Quick wins to get the most out of Hermes |\\n| 🏗️ Architecture | How it works under the hood |\\n| ❓ FAQ & Troubleshooting | Common questions and solutions |\",\n        \"position\": 5\n      }\n    ]\n  }\n}",
+      "tool_call_id": "call_02_1ejRCFPdgQ66NkHLiRDC0824"
+    },
+    {
+      "role": "assistant",
+      "content": "The direct docs pages returned errors but I found the content via the GitHub raw source. Let me now fetch the Hooks and MCP documentation from GitHub, and search for more community examples.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Z3EgOR6RvpUQt6VWeVV55470",
+          "call_id": "call_00_Z3EgOR6RvpUQt6VWeVV55470",
+          "response_item_id": "fc_00_Z3EgOR6RvpUQt6VWeVV55470",
+          "type": "function",
+          "function": {
+            "name": "web_extract",
+            "arguments": "{\"urls\": [\"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/skills/hooks.md\",\"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/mcp/mcp.md\",\"[REDACTED_WEBHOOK]"]}"
+          }
+        },
+        {
+          "id": "call_01_pihnYZ1ffMYfyw6X1k5S7752",
+          "call_id": "call_01_pihnYZ1ffMYfyw6X1k5S7752",
+          "response_item_id": "fc_01_pihnYZ1ffMYfyw6X1k5S7752",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"query\": \"hermes agent MCP server setup guide\", \"limit\": 5}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "web_extract",
+      "content": "{\n  \"results\": [\n    {\n      \"url\": \"[REDACTED_WEBHOOK]",\n      \"title\": \"website/docs/user-guide/skills/bundled/devops/devops-webhook-subscriptions.md at main · NousResearch/hermes-agent\",\n      \"content\": \"# Webhook Subscriptions — Event-Driven Agent Runs\\n\\n**Source:** NousResearch/hermes-agent (143K ⭐, Python)  \\n**Version:** 1.1.0 | **Platforms:** linux, macos, windows  \\n**Tags:** `webhook`, `events`, `automation`, `integrations`, `notifications`, `push`\\n\\n---\\n\\n## Overview\\n\\nCreate dynamic webhook subscriptions so external services (GitHub, GitLab, Stripe, CI/CD, IoT sensors, monitoring tools) can trigger Hermes agent runs by POSTing events to a URL.\\n\\n---\\n\\n## Setup (Required First)\\n\\nEnable the webhook platform before creating subscriptions:\\n\\n```bash\\nhermes webhook list\\n```\\n\\nIf \\\"Webhook platform is not enabled\\\", use one of these methods:\\n\\n### Option 1: Setup wizard\\n```bash\\nhermes gateway setup\\n```\\n\\n### Option 2: Manual config (`~/.hermes/config.yaml`)\\n```yaml\\nplatforms:\\n  webhook:\\n    enabled: true\\n    extra:\\n      host: \\\"0.0.0.0\\\"\\n      port: 8644\\n      secret: \\\"generate-a-strong-secret-here\\\"\\n```\\n\\n### Option 3: Environment variables (`~/.hermes/.env`)\\n```bash\\nWEBHOOK_ENABLED=true\\nWEBHOOK_PORT=8644\\nWEBHOOK_SECRET=generate-a-strong-secret-here\\n```\\n\\n### Start the gateway\\n```bash\\nhermes gateway run\\n# Or with systemd:\\nsystemctl --user restart hermes-gateway\\n```\\n\\n### Verify\\n```bash\\ncurl http://localhost:8644/health\\n```\\n\\n---\\n\\n## Commands\\n\\n### Create a subscription\\n```bash\\nhermes webhook subscribe <name> \\\\\\n  --prompt \\\"Prompt template with {payload.fields}\\\" \\\\\\n  --events \\\"event1,event2\\\" \\\\\\n  --description \\\"What this does\\\" \\\\\\n  --skills \\\"skill1,skill2\\\" \\\\\\n  --deliver telegram \\\\\\n  --deliver-chat-id \\\"12345\\\" \\\\\\n  --secret \\\"optional-custom-secret\\\"\\n```\\n\\nReturns the webhook URL and HMAC secret.\\n\\n### List subscriptions\\n```bash\\nhermes webhook list\\n```\\n\\n### Remove a subscription\\n```bash\\nhermes webhook remove <name>\\n```\\n\\n### Test a subscription\\n```bash\\nhermes webhook test <name>\\nhermes webhook test <name> --payload '{\\\"key\\\": \\\"value\\\"}'\\n```\\n\\n---\\n\\n## Prompt Templates\\n\\nUse `{dot.notation}` for nested payload fields:\\n\\n- `{issue.title}` — GitHub issue title\\n- `{pull_request.user.login}` — PR author\\n- `{data.object.amount}` — Stripe payment amount\\n- `{sensor.temperature}` — IoT sensor reading\\n\\n> If no prompt is specified, the full JSON payload is dumped into the agent prompt.\\n\\n---\\n\\n## Common Patterns\\n\\n### GitHub: new issues\\n```bash\\nhermes webhook subscribe github-issues \\\\\\n  --events \\\"issues\\\" \\\\\\n  --prompt \\\"New GitHub issue #{issue.number}: {issue.title}\\\\n\\\\nAction: {action}\\\\nAuthor: {issue.user.login}\\\\nBody:\\\\n{issue.body}\\\\n\\\\nPlease triage this issue.\\\" \\\\\\n  --deliver telegram \\\\\\n  --deliver-chat-id \\\"-[REDACTED_PHONE]\\\"\\n```\\n\\nConfigure in GitHub: Settings → Webhooks → Add webhook (Payload URL, `application/json`, Secret, Events: \\\"Issues\\\")\\n\\n### GitHub: PR reviews\\n```bash\\nhermes webhook subscribe github-prs \\\\\\n  --events \\\"pull_request\\\" \\\\\\n  --prompt \\\"PR #{pull_request.number} {action}: {pull_request.title}\\\\nBy: {pull_request.user.login}\\\\nBranch: {pull_request.head.ref}\\\\n\\\\n{pull_request.body}\\\" \\\\\\n  --skills \\\"github-code-review\\\" \\\\\\n  --deliver github_comment\\n```\\n\\n### Stripe: payment events\\n```bash\\nhermes webhook subscribe stripe-payments \\\\\\n  --events \\\"payment_intent.succeeded,payment_intent.payment_failed\\\" \\\\\\n  --prompt \\\"Payment {data.object.status}: {data.object.amount} cents from {data.object.receipt_email}\\\" \\\\\\n  --deliver telegram \\\\\\n  --deliver-chat-id \\\"-[REDACTED_PHONE]\\\"\\n```\\n\\n### CI/CD: build notifications\\n```bash\\nhermes webhook subscribe ci-builds \\\\\\n  --events \\\"pipeline\\\" \\\\\\n  --prompt \\\"Build {object_attributes.status} on {project.name} branch {object_attributes.ref}\\\\nCommit: {commit.message}\\\" \\\\\\n  --deliver discord \\\\\\n  --deliver-chat-id \\\"[REDACTED_PHONE]\\\"\\n```\\n\\n### Generic monitoring alert\\n```bash\\nhermes webhook subscribe alerts \\\\\\n  --prompt \\\"Alert: {alert.name}\\\\nSeverity: {alert.severity}\\\\nMessage: {alert.message}\\\\n\\\\nPlease investigate and suggest remediation.\\\" \\\\\\n  --deliver origin\\n```\\n\\n---\\n\\n## Direct Delivery (Zero LLM Cost)\\n\\nFor push notifications without agent reasoning — add `--deliver-only`. The rendered `--prompt` template becomes the literal message body, dispatched directly to the target adapter.\\n\\n**Use cases:**\\n- External service push notifications (Supabase/Firebase webhooks → Telegram)\\n- Monitoring alerts forwarding verbatim\\n- Inter-agent pings\\n- Any webhook where LLM round trip is wasted\\n\\n```bash\\nhermes webhook subscribe antenna-matches \\\\\\n  --deliver telegram \\\\\\n  --deliver-chat-id \\\"[REDACTED_PHONE]\\\" \\\\\\n  --deliver-only \\\\\\n  --prompt \\\"🎉 New match: {match.user_name} matched with you!\\\" \\\\\\n  --description \\\"Antenna match notifications\\\"\\n```\\n\\n> POST returns `200 OK` on success, `502` on target failure. HMAC auth, rate limits, and idempotency still apply. Requires `--deliver` to be a real target (not `log`).\\n\\n---\\n\\n## Security\\n\\n- Auto-generated HMAC-SHA256 secret per subscription (or custom via `--secret`)\\n- Webhook adapter validates signatures on every incoming POST\\n- Static routes from config.yaml cannot be overwritten by dynamic subscriptions\\n- Subscriptions persist to `~/.hermes/webhook_subscriptions.json`\\n\\n---\\n\\n## How It Works\\n\\n1. `hermes webhook subscribe` writes to `~/.her\\n\\n[... summary truncated for context management ...]\",\n      \"error\": null\n    }\n  ]\n}",
+      "tool_call_id": "call_00_Z3EgOR6RvpUQt6VWeVV55470"
+    },
+    {
+      "role": "tool",
+      "name": "web_search",
+      "content": "{\n  \"success\": true,\n  \"data\": {\n    \"web\": [\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference\",\n        \"title\": \"MCP Config Reference | Hermes Agent\",\n        \"description\": \"MCP Config Reference | Hermes Agent\\n[...]\\nThis page is the compact reference companion to the main MCP docs.\\n[...]\\n## Root config shape​\\n[...]\\n```yaml\\nmcp_servers:  <server_name>:    command: \\\"...\\\"      # stdio servers    args: []    env: {}    # OR    url: \\\"...\\\"          # HTTP servers    headers: {}    enabled: true    timeout: 120    connect_timeout: 60    tools:      include: []      exclude: []      resources: true      prompts: true\\n```\\n[...]\\n## Server keys​\\n[...]\\n| Key | Type | Applies to | Meaning |\\n| --- | --- | --- | --- |\\n| `command` | string | stdio | Executable to launch |\\n| `args` | list | stdio | Arguments for the subprocess |\\n| `env` | mapping | stdio | Environment passed to the subprocess |\\n| `url` | string | HTTP | Remote MCP endpoint |\\n| `headers` | mapping | HTTP | Headers for remote server requests |\\n| `enabled` | bool | both | Skip the server entirely when false |\\n| `timeout` | number | both | Tool call timeout |\\n| `connect_timeout` | number | both | Initial connection timeout |\\n| `tools` | mapping | both | Filtering and utility-tool policy |\\n| `auth` | string | HTTP | Authentication method. Set to`oauth` to enable OAuth 2.1 with PKCE |\\n| `sampling` | mapping | both | Server-initiated LLM request policy (see MCP guide) |\\n[...]\\n## tools policy keys​\\n[...]\\n| Key | Type | Meaning |\\n| --- | --- | --- |\\n| `include` | string or list | Whitelist server-native MCP tools |\\n| `exclude` | string or list | Blacklist server-native MCP tools |\\n| `resources` | bool-like | Enable/disable`list_resources`+`read_resource` |\\n| `prompts` | bool-like | Enable/disable`list_prompts`+`get_prompt` |\\n[...]\\n## Filtering semantics​\\n[...]\\nIf`include` is set, only those server-native MCP tools are registered.\\n[...]\\nIf`exclude` is set and`include` is not, every server-native MCP tool except those names is registered.\\n[...]\\n### Precedence\\n[...]\\nIf both are set,`include` wins.\\n[...]\\n## Utility-tool policy​\\n[...]\\nHermes may register these utility wrappers per MCP server:\\n[...]\\n### Disable resources​\\n[...]\\n```yaml\\ntools:  resources: false\\n[...]\\n### Disable prompts​\\n[...]\\n```yaml\\ntools:  prompts: false\\n[...]\\nEven when`resources: true` or`prompts: true`, Hermes only registers those utility tools if the MCP session actually exposes the corresponding capability.\\n[...]\\n## enabled: false​\\n[...]\\n```yaml\\nmcp_servers:  legacy:    url: \\\"https://mcp.legacy.internal\\\"    enabled: false\\n[...]\\n## Empty result behavior​\\n[...]\\n## Example configs​\\n[...]\\n### Safe GitHub allowlist​\\n[...]\\n```yaml\\nmcp_servers:  github:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]    env:      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"    tools:      include: [list_issues, create_issue, update_issue, search_code]      resources: false      prompts: false\\n```\\n[...]\\n### Stripe blacklist​\\n[...]\\n```yaml\\nmcp_servers:  stripe:    url: \\\"https://mcp.stripe.com\\\"    headers:      Authorization: \\\"Bearer ***\\\"    tools:      exclude: [delete_customer, refund_payment]\\n```\\n[...]\\n### Resource-only docs server​\\n[...]\\n```yaml\\nmcp_servers:  docs:    url: \\\"https://mcp.docs.example.com\\\"    tools:      include: []      resources: true      prompts: false\\n```\\n[...]\\n## Reloading config​\\n[...]\\nAfter changing MCP config, reload servers with:\\n[...]\\n## Tool naming​\\n\\nServer-native MCP tools become:\\n[...]\\n### Name sanitization​\\n[...]\\n## OAuth 2.1 authentication​\\n[...]\\nFor HTTP servers that require OAuth, set`auth: oauth` on the server entry:\\n[...]\\n```yaml\\nmcp_servers:  protected_api:    url: \\\"https://mcp.example.com/mcp\\\"    auth: oauth\\n```\\n[...]\\n- Hermes uses the MCP SDK's OAuth 2.1 PKCE flow (metadata discovery, dynamic client registration, token exchange, and refresh)\\n- On first connect, a browser window opens for authorization\\n- Tokens are persisted to`~/.hermes/mcp-tokens/.json` and reused across sessions\\n- Token refresh is automatic; re-authorization only happens when refresh fails\\n- Only applies to HTTP/StreamableHTTP transport (`url`-based servers)\",\n        \"position\": 1\n      },\n      {\n        \"url\": \"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/mcp.md\",\n        \"title\": \"website/docs/user-guide/features/mcp.md at main · NousResearch/hermes-agent\",\n        \"description\": \"```md\\n---\\nsidebar_position:\\n[...]\\n4\\ntitle: \\\"MCP (Model Context Protocol)\\\"\\ndescription: \\\"Connect Hermes Agent to external tool servers via MCP — and control exactly which MCP tools Hermes loads\\\"\\n---\\n[...]\\n# MCP (Model Context Protocol)\\n[...]\\nMCP lets Hermes Agent connect to external tool servers so the agent can use tools that live outside Hermes itself — GitHub, databases, file systems, browser stacks, internal APIs, and more.\\n[...]\\nLocal stdio servers and\\n[...]\\nHTTP MCP servers\\n[...]\\n## Quick start\\n[...]\\n1. Install MCP support (already included if you used the standard install script):\\n[...]\\n```bash\\ncd ~/.hermes/hermes-agent\\nuv pip install -e \\\".[mcp]\\\"\\n[...]\\n2. Add an MCP server to `~/.hermes/config.yaml`:\\n[...]\\n```yaml\\nmcp_servers:\\n  filesystem:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/projects\\\"]\\n```\\n[...]\\n3. Start Hermes:\\n[...]\\n```bash\\nhermes chat\\n```\\n[...]\\n4. Ask Hermes to use the MCP-backed capability.\\n[...]\\n## Two kinds of MCP servers\\n[...]\\n### Stdio servers\\n[...]\\nStdio servers run as local subprocesses and talk over stdin/stdout.\\n[...]\\n```yaml\\nmcp_servers:\\n  github:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]\\n    env:\\n      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"\\n[...]\\nUse stdio servers when:\\n[...]\\n### HTTP servers\\n[...]\\nHTTP MCP servers are remote endpoints Hermes connects to directly.\\n[...]\\n```yaml\\nmcp_servers:\\n  remote_api:\\n    url: \\\"https://mcp.example.com/mcp\\\"\\n    headers:\\n      Authorization: \\\"Bearer ***\\\"\\n[...]\\nUse HTTP servers when:\\n[...]\\ndo not want\\n[...]\\n## Basic configuration reference\\n[...]\\nHermes reads MCP config from `~/.hermes/config.yaml` under `mcp_servers`.\\n[...]\\n### Common keys\\n[...]\\n| Key | Type | Meaning |\\n|---|---|---|\\n| `command` | string | Executable for a stdio MCP server |\\n| `args` | list | Arguments for the stdio server |\\n| `env` | mapping | Environment variables passed to the stdio server |\\n| `url` | string | HTTP MCP endpoint |\\n| `headers` | mapping | HTTP headers for remote servers |\\n| `timeout` | number | Tool call timeout |\\n| `connect_timeout` | number | Initial connection timeout |\\n| `enabled` | bool | If `false`, Hermes skips the server entirely |\\n| `tools` | mapping | Per-server tool filtering and utility policy |\\n[...]\\n### Minimal stdio example\\n[...]\\n```yaml\\nmcp_servers:\\n  filesystem:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/tmp\\\"]\\n[...]\\n### Minimal HTTP example\\n[...]\\n```yaml\\nmcp_servers:\\n  company_api:\\n    url: \\\"https://mcp.internal.example.com\\\"\\n    headers:\\n      Authorization: \\\"Bearer ***\\\"\\n[...]\\n## How Hermes registers MCP tools\\n[...]\\n## Per-server filtering\\n[...]\\n### Disable a server entirely\\n[...]\\n://mcp.\\n[...]\\n### MCP server not connecting\\n[...]\\n```bash\\n# Verify MCP deps are installed (already included in standard install)\\ncd ~/.hermes/hermes-agent && uv pip install -e \\\".[mcp]\\\"\\n\\nnode --version\\nnpx --version\\n[...]\\nThen verify your config and restart Hermes.\\n[...]\\n### Tools not appearing\\n[...]\\n## Running Hermes as an MCP server\\n[...]\\nIn addition to connecting **to** MCP servers, Hermes can also **be** an MCP server. This lets other MCP\\n[...]\\ncapable agents (Claude Code, Cursor, Codex, or any MCP client) use Hermes's messaging capabilities — list conversations, read message history, and send messages across all your connected platforms.\\n[...]\\n### Quick start\\n[...]\\n```bash\\nhermes mcp serve\\n[...]\\nThis starts a stdio MCP server. The MCP client (not you) manages the process lifecycle.\\n[...]\\n### MCP client configuration\\n[...]\\nAdd Hermes to your MCP client config. For example, in Claude Code's `~/.claude/claude_desktop_config.json`:\\n[...]\\n```json\\n{\\n  \\\"mcpServers\\\": {\\n    \\\"hermes\\\": {\\n      \\\"command\\\": \\\"hermes\\\",\\n      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]\\n    }\\n  }\\n}\\n[...]\\nOr if you installed Hermes in a specific location:\\n[...]\\n```json\\n{\\n  \\\"mcpServers\\\": {\\n    \\\"hermes\\\": {\\n      \\\"command\\\": \\\"/home/user/.hermes/hermes-agent/venv/bin/hermes\\\",\\n      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]\\n    }\\n  }\\n}\",\n        \"position\": 2\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/skills/bundled/mcp/mcp-native-mcp\",\n        \"title\": \"Native Mcp — MCP client: connect servers, register tools (stdio/HTTP) | Hermes Agent\",\n        \"description\": \"Hermes Agent has a built-in MCP client that connects to MCP servers at startup, discovers their tools, and makes them available as first-class tools the agent can call directly. No bridge CLI needed -- tools from MCP servers appear alongside built-in tools like`terminal`,`read_file`, etc.\\n[...]\\nRun local stdio\\n[...]\\nnpx, uv\\n[...]\\nor any command\\n[...]\\nableHTTP MCP servers\\n[...]\\n## Prerequisites​\\n[...]\\n- mcp Python package -- optional dependency; install with`pip install mcp`. If not installed, MCP support is silently disabled.\\n- Node.js -- required for`npx`-based MCP servers (most community servers)\\n- uv -- required for`uvx`-based MCP servers (Python-based servers)\\n[...]\\n## Quick Start​\\n[...]\\nAdd MCP servers to`~/.hermes/config.yaml` under the`mcp_servers` key:\\n[...]\\n```yaml\\nmcp_servers:  time:    command: \\\"uvx\\\"    args: [\\\"mcp-server-time\\\"]\\n[...]\\nRestart Hermes Agent. On startup it will:\\n[...]\\n1. Connect to the server\\n[...]\\n2. Discover available tools\\n[...]\\nmcp_time_*`\\n[...]\\n4. Inject them into all platform toolsets\\n[...]\\n## Configuration Reference​\\n[...]\\nEach entry under`mcp_servers` is a server name mapped to its config. There are two transport types: stdio (command-based) and HTTP (url-based).\\n[...]\\n### Stdio Transport (command + args)​\\n[...]\\n```yaml\\nmcp_servers:  server_name:    command: \\\"npx\\\"             # (required) executable to run    args: [\\\"-y\\\", \\\"pkg-name\\\"]   # (optional) command arguments, default: []    env:                       # (optional) environment variables for the subprocess      SOME_API_KEY: \\\"value\\\"    timeout: 120               # (optional) per-tool-call timeout in seconds, default: 120    connect_timeout: 60        # (optional) initial connection timeout in seconds, default: 60\\n[...]\\n### HTTP Transport (url)​\\n[...]\\n```yaml\\nmcp_servers:  server_name:    url: \\\"https://my-server.example.com/mcp\\\"   # (required) server URL    headers:                                     # (optional) HTTP headers      Authorization: \\\"Bearer sk-...\\\"    timeout: 180               # (optional) per-tool-call timeout in seconds, default: 120    connect_timeout: 60        # (optional) initial connection timeout in seconds, default: 60\\n[...]\\n| Option | Type | Default | Description |\\n[...]\\n| --- | --- | --- | --- |\\n[...]\\n| `command` | string | -- | Executable to run (stdio transport, required) |\\n| `args` | list | `[]` | Arguments passed to the command |\\n| `env` | dict | `{}` | Extra environment variables for the subprocess |\\n| `url` | string | -- | Server URL (HTTP transport, required) |\\n| `headers` | dict | `{}` | HTTP headers sent with every request |\\n| `timeout` | int | `120` | Per-tool-call timeout in seconds |\\n| `connect_timeout` | int | `60` | Timeout for initial connection and discovery |\\n[...]\\nNote: A server config must have either`command`(stdio) or`url`(HTTP), not both.\\n[...]\\nHermes Agent starts\\n[...]\\n`discover_mcp_\\n[...]\\ncalled during tool initialization\\n[...]\\n1. Reads`mcp_servers` from`~/.hermes/config.yaml`\\n[...]\\neach server, spaw\\n[...]\\na connection in a dedicated background event loop\\n[...]\\n. Initializes the MCP session and calls`list_tools()`\\n[...]\\neach tool in\\n[...]\\nHermes launches the MCP server as a subprocess and communicates over stdin/stdout.\\n[...]\\n### HTTP / StreamableHTTP Transport​\\n[...]\\nFor remote or shared MCP servers. Requires the`mcp` package to include HTTP client support (`mcp.client.streamable_http`).\\n[...]\\nmcp_servers:\\n[...]\\n.com/\\n[...]\\n### \\\"No MCP servers configured\\\"​\\n[...]\\nNo`mcp_servers` key in`~/.hermes/config.yaml`, or it's empty. Add at least one server.\\n[...]\\n### \\\"Failed to\\n[...]\\nto MCP server 'X'\\\"\\n[...]\\n- Command not found: The`command` binary isn't on PATH. Ensure`npx`,`uvx`, or\\n[...]\\nrelevant command is installed.\\n- Package not found: For npx servers, the npm package may not exist or may need`-y` in args to auto-install.\\n- Timeout: The server took too long to start. Increase`connect_timeout`.\\n- Port conflict: For HTTP servers, the URL may be unreachable.\",\n        \"position\": 3\n      },\n      {\n        \"url\": \"https://evomap.ai/blog/run-hermes-agent-as-mcp-server\",\n        \"title\": \"How to Run Hermes Agent as an MCP Server - EvoMap Blog\",\n        \"description\": \"Hi, I'm Lena. Most people know Hermes Agent as a self-improving AI agent you talk to from a terminal or a messaging channel. Fewer people know that since v0.6.0, you can flip the relationship entirely — run Hermes as an ​MCP​​ server and let other AI clients consume its conversations, messages, and platform connections as tools.\\n[...]\\nWhen you run`hermes mcp serve`, Hermes starts a stdio-based MCP server that exposes 10 tools. These aren't Hermes' full internal toolset (no terminal access, no file operations, no web search). They're a curated surface focused specifically on messaging conversations. Here's what you get:\\n[...]\\nThese tools read directly from Hermes\\n[...]\\n(`~/.\\n[...]\\ngateway is offline\\n[...]\\nSend operations are the\\n[...]\\nside, and this is where the dependency graph changes. Sending a message through a connected platform — Telegram, Discord, Slack, whatever you\\n[...]\\nrequires the Hermes gateway to be running with active connections to those platform adapters. No gateway, no send. The MCP server uses the same`send_message` infrastructure as the Hermes agent itself, so permissions and rate limits apply identically\\n[...]\\n## Set Up hermes mcp serve Step by Step\\n[...]\\nHere's\\n[...]\\nStep 1: Ensure ​Hermes​​ is installed and configured. MCP server mode reads from Hermes' existing session store and config. If you haven't run Hermes before, there's nothing to serve. You need at least one prior conversation in the session database.\\n[...]\\nStep 2: Start the ​MCP​​ server.\\n[...]\\n```\\nhermes mcp serve\\n[...]\\nThat's it for the server side. Add`--verbose` for debug logging on stderr. The server communicates over stdio — no network ports are opened, no HTTP listener, no SSE endpoint. The MCP client (Claude Code, Cursor, etc.) manages the process lifecycle. You don't run this in a terminal and leave it there; the client spawns and manages it.\\n[...]\\nStep 3: Add ​Hermes​​ to your ​MCP​​ client config.\\n[...]\\nFor Claude Code or Claude Desktop, add this to your MCP configuration (typically`claude_desktop_config.json` or the equivalent):\\n[...]\\n```\\n{\\n  \\\"mcpServers\\\": {\\n    \\\"hermes\\\": {\\n      \\\"command\\\": \\\"hermes\\\",\\n      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]\\n    }\\n  }\\n}\\n\\n```\\n[...]\\nFor Cursor, the config goes in`.cursor/mcp.json` in your project or home directory, following the same structure.\\n[...]\\n​Step 4: If you want send operations, start the ​gateway​.\\n[...]\\n```\\nhermes gateway\\n\\n```\\n[...]\\nOr if it's already running as a systemd service:\\n[...]\\n```\\nsystemctl --user status hermes-gateway\\n[...]\\nRead operations work without the gateway. Send operations require it. This is not a soft dependency — if the gateway isn't running and the MCP client tries to send a message, the call will fail.\\n[...]\\nA note on profiles: if you run multiple Hermes profiles, each profile has its own session store, config, and gateway. The MCP server respects whichever profile is active when`hermes mcp serve` is invoked. Use`hermes -p mcp serve` to target a specific profile.\\n[...]\\nv0.6.0 surface\\n[...]\\nserve` operates\\n[...]\\nstdio only\\n[...]\\npart of Hermes' MCP client support (connecting to\\n[...]\\nserve command communicates\\n[...]\\nstdin/stdout\\n[...]\\nThis means:\\n[...]\\n`hermes mcp serve`\\n[...]\\nthrough this command alone\\n[...]\\nclient can connect\\n[...]\\na time per server process\\n[...]\\n's no built-\\n[...]\\non who can execute the command on\\n[...]\\nNot directly. The current transport is stdio only, which requires the MCP client to spawn the server as a local subprocess. If you need remote access, you'd have to wrap it behind an SSH tunnel or a proxy that bridges stdio to HTTP. Native HTTP transport for`hermes mcp serve` is not yet available.\\n[...]\\nwant send operations. Read operations — listing conversations, reading messages, searching sessions — work against the local session database without the gateway. This means you can query historical conversation data even when your messaging platforms are disconnected.\\n[...]\\nthe place to start.\",\n        \"position\": 4\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp\",\n        \"title\": \"MCP (Model Context Protocol) | Hermes Agent - nous research\",\n        \"description\": \"- Access to external tool ecosystems without writing a native Hermes tool first\\n[...]\\nLocal stdio servers and remote HTTP MCP servers in the same config\\n[...]\\n- Utility wrappers for MCP resources and prompts when supported by the server\\n[...]\\n- Per-server\\n[...]\\nthe MCP tools you\\n[...]\\n## Quick start​\\n[...]\\n1. Install MCP support (already included if you used the standard install script):\\n[...]\\n```bash\\ncd ~/.hermes/hermes-agentuv pip install -e \\\".[mcp]\\\"\\n[...]\\n1. Add an MCP server to`~/.hermes/config.yaml`:\\n[...]\\n```yaml\\nmcp_servers:  filesystem:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/projects\\\"]\\n```\\n[...]\\n1. Start Hermes:\\n[...]\\n```bash\\nhermes chat\\n[...]\\n1. Ask Hermes to use the MCP-backed capability.\\n[...]\\n## Two kinds of MCP servers​\\n[...]\\n### Stdio servers​\\n[...]\\nStdio servers run as local subprocesses and talk over stdin/stdout.\\n[...]\\n```yaml\\nmcp_servers:  github:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]    env:      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"\\n[...]\\nUse stdio servers when:\\n[...]\\n### HTTP servers​\\n[...]\\nHTTP MCP servers are remote endpoints Hermes connects to directly.\\n[...]\\n```yaml\\nmcp_servers:  remote_api:    url: \\\"https://mcp.example.com/mcp\\\"    headers:      Authorization: \\\"Bearer ***\\\"\\n[...]\\nUse HTTP servers when:\\n[...]\\n- the MCP server is hosted elsewhere\\n[...]\\n- your organization exposes internal MCP endpoints\\n[...]\\n- you do not want\\n[...]\\nspawning a local subprocess for that integration\\n[...]\\n## Basic configuration reference​\\n[...]\\nHermes reads MCP config from`~/.hermes/config.yaml` under`mcp_servers`.\\n[...]\\n### Common keys​\\n[...]\\n| Key | Type | Meaning |\\n| --- | --- | --- |\\n| `command` | string | Executable for a stdio MCP server |\\n| `args` | list | Arguments for the stdio server |\\n| `env` | mapping | Environment variables passed to the stdio server |\\n| `url` | string | HTTP MCP endpoint |\\n| `headers` | mapping | HTTP headers for remote servers |\\n| `timeout` | number | Tool call timeout |\\n| `connect_timeout` | number | Initial connection timeout |\\n| `enabled` | bool | If`false`, Hermes skips the server entirely |\\n| `tools` | mapping | Per-server tool filtering and utility policy |\\n[...]\\n### Minimal stdio example​\\n[...]\\n```yaml\\nmcp_servers:  filesystem:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/tmp\\\"]\\n[...]\\n### Minimal HTTP example​\\n[...]\\n```yaml\\nmcp_servers:  company_api:    url: \\\"https://mcp.internal.example.com\\\"    headers:      Authorization: \\\"Bearer ***\\\"\\n[...]\\n## How Hermes registers MCP tools​\\n[...]\\n## Per-server filtering​\\n[...]\\n### Disable a server entirely​\\n[...]\\n```yaml\\nmcp_servers:  legacy:    url: \\\"https://mcp.legacy.internal\\\"    enabled: false\\n[...]\\nWhitelist server tools\\n[...]\\n_ACCESS_TOKEN\\n[...]\\n[create_issue,\\n[...]\\n_issues]\\n[...]\\nFilter utility tools too​\\n[...]\\n```yaml\\nmcp\\n[...]\\nservers:\\n[...]\\n:    url:\\n[...]\\nhttps://mcp\\n[...]\\n### Full example\\n[...]\\n## Troubleshooting​\\n[...]\\n### MCP server not connecting​\\n[...]\\n```bash\\n# Verify MCP deps are installed (already included in standard install)cd ~/.hermes/hermes-agent && uv pip install -e \\\".[mcp]\\\"node --versionnpx --version\\n[...]\\nThen verify your config and restart Hermes\\n[...]\\n### Tools not appearing​\\n[...]\\n## Running Hermes as an MCP server​\\n[...]\\nIn addition to\\n[...]\\n### Quick start​\\n[...]\\n```bash\\nhermes mcp serve\\n[...]\\nThis starts a stdio MCP server. The MCP client (not you) manages the process lifecycle.\\n[...]\\n### MCP client configuration​\\n[...]\\nAdd Hermes to your MCP client config. For example, in Claude Code's`~/.claude/claude_desktop_config.json`:\\n[...]\\n```json\\n{  \\\"mcpServers\\\": {    \\\"hermes\\\": {      \\\"command\\\": \\\"hermes\\\",      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]    }  }}\\n[...]\\nOr if you installed Hermes in a specific location:\\n[...]\\n{  \\\"mcpServers\\\": {    \\\"hermes\\\": {      \\\"command\\\": \\\"/home/user/.hermes/hermes-agent/venv/bin/hermes\\\",      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]    }  }}\\n[...]\\n### Options​\",\n        \"position\": 5\n      }\n    ]\n  }\n}",
+      "tool_call_id": "call_01_pihnYZ1ffMYfyw6X1k5S7752"
+    },
+    {
+      "role": "assistant",
+      "content": "Now let me get the Hooks documentation from the GitHub source, since the direct URL failed.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_BVyve10xOZi1zxTp6YsU0984",
+          "call_id": "call_00_BVyve10xOZi1zxTp6YsU0984",
+          "response_item_id": "fc_00_BVyve10xOZi1zxTp6YsU0984",
+          "type": "function",
+          "function": {
+            "name": "web_extract",
+            "arguments": "{\"urls\": [\"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/hooks.md\"]}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "web_extract",
+      "content": "{\n  \"results\": [\n    {\n      \"url\": \"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/hooks.md\",\n      \"title\": \"website/docs/user-guide/features/hooks.md at main · NousResearch/hermes-agent\",\n      \"content\": \"# Event Hooks - Hermes Agent Documentation Summary\\n\\n## Overview\\n\\nHermes provides **three hook systems** for running custom code at key lifecycle points. All are non-blocking - errors are caught and logged, never crashing the agent.\\n\\n| System | Registered via | Runs in | Use case |\\n|--------|---------------|---------|----------|\\n| **Gateway hooks** | `HOOK.yaml` + `handler.py` in `~/.hermes/hooks/` | Gateway only | Logging, alerts, webhooks |\\n| **Plugin hooks** | `ctx.register_hook()` in a plugin | CLI + Gateway | Tool interception, metrics, guardrails |\\n| **Shell hooks** | `hooks:` block in `~/.hermes/config.yaml` | CLI + Gateway | Drop-in scripts for blocking, auto-formatting, context injection |\\n\\n---\\n\\n## 1. Gateway Event Hooks\\n\\nFire automatically during gateway operation (Telegram, Discord, Slack, WhatsApp, Teams).\\n\\n### Structure\\nEach hook is a directory under `~/.hermes/hooks/` with two files:\\n\\n```text\\n~/.hermes/hooks/\\n└── my-hook/\\n    ├── HOOK.yaml      # Declares which events to listen for\\n    └── handler.py     # Python handler function\\n```\\n\\n### HOOK.yaml Format\\n```yaml\\nname: my-hook\\ndescription: Log all agent activity to a file\\nevents:\\n  - agent:start\\n  - agent:end\\n  - agent:step\\n```\\n\\n### Handler Rules\\n- Function **must be named `handle`**\\n- Receives `event_type` (string) and `context` (dict)\\n- Can be `async def` or regular `def`\\n- Errors are caught and logged, never crashing the agent\\n\\n### Available Events\\n\\n| Event | When it fires | Context keys |\\n|-------|---------------|--------------|\\n| `gateway:startup` | Gateway process starts | `platforms` (list) |\\n| `session:start` | New messaging session created | `platform`, `user_id`, `session_id`, `session_key` |\\n| `session:end` | Session ended | `platform`, `user_id`, `session_key` |\\n| `session:reset` | User ran `/new` or `/reset` | `platform`, `user_id`, `session_key` |\\n| `agent:start` | Agent begins processing | `platform`, `user_id`, `session_id`, `message` |\\n| `agent:step` | Each iteration of tool-calling loop | `platform`, `user_id`, `session_id`, `iteration`, `tool_names` |\\n| `agent:end` | Agent finishes processing | `platform`, `user_id`, `session_id`, `message`, `response` |\\n| `command:*` | Any slash command executed | `platform`, `user_id`, `command`, `args` |\\n\\n**Wildcard matching** supported - `command:*` fires for any `command:` event.\\n\\n### Key Example: BOOT.md Tutorial\\n\\nA community pattern for running startup checklists on every gateway boot:\\n\\n1. Create `~/.hermes/BOOT.md` with natural-language instructions\\n2. Create a hook that fires on `gateway:startup`\\n3. Hook spawns a one-shot agent to execute the checklist\\n4. `[SILENT]` convention allows opting out of sending messages when nothing to report\\n\\n**Why not built-in:** Earlier version surprised users with custom endpoints. Keeping it as documented pattern means users opt in explicitly.\\n\\n---\\n\\n## 2. Plugin Hooks\\n\\nRegistered programmatically via `ctx.register_hook()` in a plugin's `register()` function. Work in **both CLI and gateway** sessions.\\n\\n```python\\ndef register(ctx):\\n    ctx.register_hook(\\\"pre_tool_call\\\", my_tool_observer)\\n    ctx.register_hook(\\\"post_tool_call\\\", my_tool_logger)\\n    ctx.register_hook(\\\"pre_llm_call\\\", my_memory_callback)\\n    ctx.register_hook(\\\"post_llm_call\\\", my_sync_callback)\\n    ctx.register_hook(\\\"on_session_start\\\", my_init_callback)\\n    ctx.register_hook(\\\"on_session_end\\\", my_cleanup_callback)\\n```\\n\\n### General Rules\\n- Callbacks receive **keyword arguments** - always accept `**kwargs` for forward compatibility\\n- If a callback crashes, it's logged and skipped\\n- Two hooks affect behavior: `pre_tool_call` (can **block** tools) and `pre_llm_call` (can **inject context**)\\n\\n### Quick Reference\\n\\n| Hook | Fires when | Returns |\\n|------|-----------|---------|\\n| `pre_tool_call` | Before any tool executes | `{\\\"action\\\": \\\"block\\\", \\\"message\\\": str}` to veto |\\n| `post_tool_call` | After any tool returns | ignored |\\n| `pre_llm_call` | Once per turn, before tool-calling loop | `{\\\"context\\\": str}` to prepend context |\\n| `post_llm_call` | Once per turn, after tool-calling loop | ignored |\\n| `on_session_start` | New session created (first turn only) | ignored |\\n| `on_session_end` | Session ends | ignored |\\n| `on_session_finalize` | CLI/gateway tears down active session | ignored |\\n| `on_session_reset` | Gateway swaps in fresh session key | ignored |\\n| `subagent_stop` | A `delegate_task` child has exited | ignored |\\n| `pre_gateway_dispatch` | Gateway received user message, before auth | `{\\\"action\\\": \\\"skip\\\"\\\\|\\\"rewrite\\\"\\\\|\\\"allow\\\"}` |\\n| `pre_approval_request` | Dangerous command needs approval | ignored |\\n| `post_approval_response` | User responded to approval prompt | ignored |\\n| `transform_tool_result` | After any tool returns, before model sees it | `str` to replace, `None` unchanged |\\n| `transform_terminal_output` | Inside `terminal` tool, pre-truncation | `str` to replace, `None` unchanged |\\n\\n### Key Details\\n\\n**`pre_tool_call`** - Can block tools:\\n```python\\nreturn {\\\"action\\\": \\\"block\\\", \\\"message\\\": \\\"Re\\n\\n[... summary truncated for context management ...]\",\n      \"error\": null\n    }\n  ]\n}",
+      "tool_call_id": "call_00_BVyve10xOZi1zxTp6YsU0984"
+    },
+    {
+      "role": "assistant",
+      "content": "Excellent! I now have comprehensive documentation from all four areas. Let me also look at the shell hooks (the third type) and the MCP authoring guides.",
+      "reasoning": null,
+      "finish_reason": "tool_calls",
+      "reasoning_content": " ",
+      "tool_calls": [
+        {
+          "id": "call_00_Svy4O07UgbIe46T6sv990696",
+          "call_id": "call_00_Svy4O07UgbIe46T6sv990696",
+          "response_item_id": "fc_00_Svy4O07UgbIe46T6sv990696",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"limit\": 3, \"query\": \"hermes agent shell hooks config.yaml hooks block example\"}"
+          }
+        },
+        {
+          "id": "call_01_UGZ79dYZcvLjTbo9BoOS5010",
+          "call_id": "call_01_UGZ79dYZcvLjTbo9BoOS5010",
+          "response_item_id": "fc_01_UGZ79dYZcvLjTbo9BoOS5010",
+          "type": "function",
+          "function": {
+            "name": "web_search",
+            "arguments": "{\"limit\": 3, \"query\": \"hermes agent create MCP server authoring guide self-hosted\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "name": "web_search",
+      "content": "{\n  \"success\": true,\n  \"data\": {\n    \"web\": [\n      {\n        \"url\": \"https://github.com/NousResearch/hermes-agent/pull/13296\",\n        \"title\": \"feat: shell hooks — wire shell scripts as Hermes hook callbacks (PR #13143) · Pull Request #13296 · NousResearch/hermes-agent\",\n        \"description\": \"## feat: shell hooks — wire shell scripts as Hermes hook callbacks (PR #13143)\\n[...]\\nShell hooks let users declare shell scripts in config.yaml that fire on plugin-hook events. Scripts receive JSON on stdin and can block tool calls or inject context.\\n[...]\\n- `agent/shell_hooks.py` (831 lines): Core engine — config parsing, consent model, subprocess execution, PluginManager integration\\n- `hermes_cli/hooks.py` (385 lines): CLI subcommands — list/test/revoke/doctor\\n- `hermes_cli/main.py`: --accept-hooks flag propagation, agent-command gating for hook registration\\n- `gateway/run.py`: +33 lines — defensive hook registration at gateway startup\\n- `hermes_cli/plugins.py`: +1 line — adds subagent_stop to VALID_HOOKS\\n- `tools/delegate_tool.py`: +45 lines — fires subagent_stop hook after children complete\\n- `hermes_cli/config.py`: hooks: {} and hooks_auto_accept: false defaults\\n- `cli-config.yaml.example`: Documented hooks config block\\n- `website/docs/user-guide/features/hooks.md`: Full documentation with wire protocol, examples, comparison table\\n- 5 test files (96 tests passing): consent flow, allowlist concurrency, CLI subcommands, subprocess execution, matcher filtering\",\n        \"position\": 1\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/reference/cli-commands\",\n        \"title\": \"CLI Commands Reference | Hermes Agent\",\n        \"description\": \"| `her\\n[...]\\n| `hermes hooks` | Inspect, approve, or remove shell-script hooks declared in`config.yaml`. |\\n[...]\\n## hermes hooks​\\n[...]\\n```bash\\nhermes hooks <subcommand>\\n[...]\\nInspect shell-script hooks declared in`~/.hermes/config.yaml`, test them against synthetic payloads, and manage the first-use consent allowlist at`~/.hermes/shell-hooks-allowlist.json`.\\n[...]\\n| Subcommand | Description |\\n| --- | --- |\\n| `list`(alias:`ls`) | List configured hooks with matcher, timeout, and consent status |\\n| `test ` | Fire every hook matching` ` against a synthetic payload |\\n| `revoke`(aliases:`remove`,`rm`) | Remove a command's allowlist entries (takes effect on next restart) |\\n| `doctor` | Check each configured hook: exec bit, allowlist, mtime drift, JSON validity, and synthetic run timing |\\n[...]\\nHooks for event signatures and payload shapes.\",\n        \"position\": 2\n      },\n      {\n        \"url\": \"https://github.com/NousResearch/hermes-agent/blob/main/cli-config.yaml.example\",\n        \"title\": \"cli-config.yaml.example - NousResearch/hermes-agent - GitHub\",\n        \"description\": \"# =============================================================================\\n# Shell-script hooks\\n# =============================================================================\\n# Register shell scripts as plugin-hook callbacks.  Each entry is executed as\\n# a subprocess (shell=False, shlex.split) with a JSON payload on stdin.  On\\n# stdout the script may return JSON that either blocks the tool call or\\n# injects context into the next LLM call.\\n#\\n# Valid events (mirror hermes_cli.plugins.VALID_HOOKS):\\n#   pre_tool_call, post_tool_call, pre_llm_call, post_llm_call,\\n#   pre_api_request, post_api_request, on_session_start, on_session_end,\\n#   on_session_finalize, on_session_reset, subagent_stop\\n#\\n# First-use consent: each (event, command) pair prompts once on a TTY, then\\n# is persisted to ~/.hermes/shell-hooks-allowlist.json.  Non-interactive\\n# runs (gateway, cron) need --accept-hooks, HERMES_ACCEPT_HOOKS=1, or the\\n# hooks_auto_accept key below.\\n#\\n# See website/docs/user-guide/features/hooks.md for the full JSON wire\\n# protocol and worked examples.\\n#\\n# hooks:\\n#   pre_tool_call:\\n#     - matcher: \\\"terminal\\\"\\n#       command: \\\"~/.hermes/agent-hooks/block-rm-rf.sh\\\"\\n#       timeout: 10\\n#   post_tool_call:\\n#     - matcher: \\\"write_file|patch\\\"\\n#       command: \\\"~/.hermes/agent-hooks/auto-format.sh\\\"\\n#   pre_llm_call:\\n#     - command: \\\"~/.hermes/agent-hooks/inject-cwd-context.sh\\\"\\n#   subagent_stop:\\n#     - command: \\\"~/.hermes/agent-hooks/log-orchestration.sh\\\"\\n#\\n# hooks_auto_accept: false\\n\\n```\",\n        \"position\": 3\n      }\n    ]\n  }\n}",
+      "tool_call_id": "call_00_Svy4O07UgbIe46T6sv990696"
+    },
+    {
+      "role": "tool",
+      "name": "web_search",
+      "content": "{\n  \"success\": true,\n  \"data\": {\n    \"web\": [\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp\",\n        \"title\": \"MCP (Model Context Protocol) | Hermes Agent\",\n        \"description\": \"MCP lets Hermes Agent connect to external tool servers so the agent can use tools that live outside Hermes itself — GitHub, databases, file systems, browser stacks, internal APIs, and more.\\n[...]\\n- Access to external tool ecosystems without writing a native Hermes tool first\\n- Local stdio servers and remote HTTP MCP servers in the same config\\n- Automatic tool discovery and registration at startup\\n- Utility wrappers for MCP resources and prompts when supported by the server\\n- Per-server filtering so you can expose only the MCP tools you actually want Hermes to see\\n[...]\\n## Quick start​\\n[...]\\n1. Install MCP support (already included if you used the standard install script):\\n[...]\\n1. Add an MCP server to`~/.hermes/config.yaml`:\\n[...]\\n```yaml\\nmcp_servers:  filesystem:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/projects\\\"]\\n```\\n[...]\\n1. Start Hermes:\\n[...]\\n. Ask Hermes to use the MCP-backed capability.\\n[...]\\n## Two kinds of MCP servers​\\n[...]\\n### HTTP servers​\\n[...]\\nHTTP MCP servers are remote endpoints Hermes connects to directly.\\n[...]\\n## Basic configuration reference​\\n[...]\\nHermes reads MCP config from`~/.hermes/config.yaml` under`mcp_servers`.\\n[...]\\n| Key | Type | Meaning |\\n| --- | --- | --- |\\n| `command` | string | Executable for a stdio MCP server |\\n| `args` | list | Arguments for the stdio server |\\n| `env` | mapping | Environment variables passed to the stdio server |\\n| `url` | string | HTTP MCP endpoint |\\n| `headers` | mapping | HTTP headers for remote servers |\\n| `timeout` | number | Tool call timeout |\\n| `connect_timeout` | number | Initial connection timeout |\\n| `enabled` | bool | If`false`, Hermes skips the server entirely |\\n| `tools` | mapping | Per-server tool filtering and utility policy |\\n[...]\\n### Minimal stdio example​\\n[...]\\n```yaml\\nmcp_servers:  filesystem:    command: \\\"npx\\\"    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/tmp\\\"]\\n[...]\\n## How Hermes registers MCP tools​\\n[...]\\nHermes prefixes MCP tools so they do not collide with built-in names:\\n[...]\\n## MCP utility tools​\\n[...]\\n## Per-server filtering​\\n[...]\\nYou can control which tools each MCP server contributes to Hermes, allowing fine-grained management of your tool namespace.\\n[...]\\n### Disable a server entirely​\\n[...]\\nIf`enabled: false`, Hermes skips the server completely and does not even attempt a connection.\\n[...]\\n### Whitelist server tools​\\n[...]\\ncreate_issue\\n[...]\\n### Filter utility tools too​\\n[...]\\nYou can also separately disable Hermes-added utility wrappers:\\n[...]\\n## Runtime behavior\\n[...]\\nHermes discovers MCP servers at startup and registers their tools into the normal tool registry.\\n[...]\\nMCP servers can notify Hermes when their available tools change at\\n[...]\\nby sending a`notifications/tools/list_changed` notification\\n[...]\\nWhen Hermes receives this notification, it automatically re-fetches the server's tool list and updates the\\n[...]\\n### Reloading​\\n[...]\\nIf you change MCP config, use:\\n[...]\\n## Troubleshooting​\\n[...]\\n## Running Hermes as an MCP server​\\n[...]\\nIn addition to connecting to MCP servers, Hermes can also be an MCP server. This lets other MCP-capable agents (Claude Code, Cursor, Codex, or any MCP client) use Hermes's messaging capabilities — list conversations, read message history, and send messages across all your connected platforms.\\n[...]\\n### Quick start​\\n[...]\\n```bash\\nhermes mcp serve\\n[...]\\nThis starts a stdio MCP server. The MCP client (not you) manages the process lifecycle.\\n[...]\\n### MCP client configuration​\\n[...]\\nAdd Hermes to your MCP client config. For example, in Claude Code's`~/.claude/claude_desktop_config.json`:\\n[...]\\n```json\\n{  \\\"mcpServers\\\": {    \\\"hermes\\\": {      \\\"command\\\": \\\"hermes\\\",      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]    }  }}\\n[...]\\nOr if you installed Hermes in a specific location:\\n[...]\\n```json\\n{  \\\"mcpServers\\\": {    \\\"hermes\\\": {      \\\"command\\\": \\\"/home/user/.hermes/hermes-agent/venv/bin/hermes\\\",      \\\"args\\\": [\\\"mcp\\\", \\\"serve\\\"]    }  }}\",\n        \"position\": 1\n      },\n      {\n        \"url\": \"https://hermes-agent.nousresearch.com/docs/user-guide/skills/optional/mcp/mcp-fastmcp\",\n        \"title\": \"Fastmcp — Build, test, inspect, install, and deploy MCP servers with FastMCP in Python | Hermes Agent\",\n        \"description\": \"Fastmcp — Build, test, inspect, install, and deploy MCP servers with FastMCP in Python | Hermes Agent\\n[...]\\nBuild, test, inspect, install, and deploy MCP servers with FastMCP in Python. Use when creating a new MCP server, wrapping an API or database as MCP tools, exposing resources or prompts, or preparing a FastMCP server for Claude Code, Cursor, or HTTP deployment.\\n[...]\\nBuild MCP servers in Python with FastMCP, validate them locally, install them into MCP clients, and deploy them as HTTP endpoints.\\n[...]\\n- create a new MCP server in Python\\n- wrap an API, database, CLI, or file-processing workflow as MCP tools\\n- expose resources or prompts in addition to tools\\n- smoke-test a server with the FastMCP CLI before wiring it into Hermes or another client\\n- install a server into Claude Code, Claude Desktop, Cursor, or a similar MCP client\\n- prepare a FastMCP server repo for HTTP deployment\\n[...]\\nUse`native-mcp` when the server already exists and only needs to be connected to Hermes. Use`mcporter` when the goal is ad-hoc CLI access to an existing MCP server instead of building one.\\n[...]\\n## Prerequisites​\\n[...]\\nInstall FastMCP in the working environment first:\\n[...]\\n- `templates/api_wrapper.py\\n[...]\\nREST API wrapper with auth header support\\n[...]\\nread-only SQLite query server\\n[...]\\n- `scripts/scaffold_fastmcp.py`- copy a starter template and replace the server name placeholder\\n[...]\\n- `references/fastmcp-cli.md`- FastMCP CLI workflow, installation targets, and deployment checks\\n[...]\\n### 2. Scaffold from a Template​\\n[...]\\nCopy a template directly or use the scaffold helper:\\n[...]\\n```bash\\npython ~/.hermes/skills/mcp/fastmcp/scripts/scaffold_fastmcp.py \\\\  --template api_wrapper \\\\  --name \\\"Acme API\\\" \\\\  --output ./acme_server.py\\n[...]\\n### 3. Implement Tools First​\\n[...]\\nStart with`@mcp.tool` functions before adding resources or prompts.\\n[...]\\n### 4. Add Resources and Prompts Only When They Help​\\n[...]\\nAdd`@mcp.resource` when the client benefits from fetching stable read-only content such as schemas, policy docs, or generated reports.\\n[...]\\nAdd`@mcp.prompt` when the server should provide a reusable prompt template for a known workflow.\\n[...]\\n### 5. Test the Server Before Integrating It Anywhere​\\n[...]\\nUse the FastMCP CLI for local validation:\\n[...]\\n```bash\\nfastmcp inspect acme_server.py:mcpfastmcp list acme_server.py --jsonfastmcp call acme_server.py search_resources query=router limit=5 --json\\n[...]\\nTo test HTTP transport locally:\\n[...]\\nfastmcp run acme_server.py\\n[...]\\n### 6. Install into a Client When Local Validation Passes​\\n[...]\\nFastMCP can register the server with supported MCP clients:\\n[...]\\n```bash\\nfastmcp install claude-code acme_server.pyfastmcp install claude-desktop acme_server.pyfastmcp install cursor acme_server.py -e .\\n[...]\\nUse`fastmcp discover` to inspect named MCP servers already configured on the machine.\\n[...]\\nWhen the goal is Hermes integration, either:\\n[...]\\n- configure the server in`~/.hermes/config.yaml` using the`native-mcp` skill, or\\n- keep using FastMCP CLI commands during development until the interface stabilizes\\n[...]\\n### 7. Deploy After the Local Contract Is Stable​\\n[...]\\nFor managed hosting, Prefect Horizon is the path FastMCP documents most directly. Before deployment:\\n[...]\\n```bash\\nfastmcp inspect acme_server.py:mcp\\n```\\n[...]\\nMake sure the repo contains:\\n[...]\\n- a Python file with the FastMCP server object\\n- `requirements.txt` or`pyproject.toml`\\n- any environment-variable documentation needed for deployment\\n[...]\\nFor generic HTTP hosting, validate the HTTP transport locally first, then deploy on any Python-compatible platform that can expose the server port.\\n[...]\\n## Quality Bar​\\n[...]\\nBefore handing off a FastMCP server, verify all of the following:\\n[...]\\n### Hermes cannot see the deployed server​\\n[...]\\nThe server-building part may be correct while the Hermes config is not. Load the`native-mcp` skill and configure the server in`~/.hermes/config.yaml`, then restart Hermes.\",\n        \"position\": 2\n      },\n      {\n        \"url\": \"https://github.com/NousResearch/hermes-agent/blob/main/website/docs/guides/use-mcp-with-hermes.md\",\n        \"title\": \"website/docs/guides/use-mcp-with-hermes.md at main · NousResearch/hermes-agent\",\n        \"description\": \"```md\\n---\\nsidebar_position: 6\\ntitle: \\\"Use MCP with Hermes\\\"\\ndescription: \\\"A practical guide to connecting MCP servers to Hermes Agent, filtering their tools, and using them safely in real workflows\\\"\\n---\\n[...]\\n# Use MCP with Hermes\\n[...]\\nThis guide shows how to actually use MCP with Hermes Agent in day-to-day workflows.\\n[...]\\n## Step 1: install MCP support\\n[...]\\nIf you installed Hermes with the standard install script, MCP support is already included (the installer runs `uv pip install -e \\\".[all]\\\"`).\\n[...]\\nIf you installed without extras and need to add MCP separately:\\n[...]\\n```bash\\ncd ~/.hermes/hermes-agent\\nuv pip install -e \\\".[mcp]\\\"\\n[...]\\nFor npm-based servers, make sure Node.js and `npx` are available.\\n[...]\\nFor many Python MCP servers, `uvx` is a nice default.\\n[...]\\n## Step 2: add one server first\\n[...]\\nStart with a single, safe server.\\n[...]\\nExample: filesystem access to one project directory only.\\n[...]\\n```yaml\\nmcp_servers:\\n  project_fs:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/my-project\\\"]\\n[...]\\nThen start Hermes:\\n[...]\\n## Step 3: verify MCP loaded\\n[...]\\nYou can verify MCP in a few ways:\\n[...]\\n- Hermes banner/status should show MCP integration when configured\\n- ask Hermes what tools it has available\\n- use `/reload-mcp` after config changes\\n- check logs if the server failed to connect\\n[...]\\n## Step 4: start filtering immediately\\n[...]\\nDo not wait until later if the server exposes a lot of tools.\\n[...]\\n### Example: whitelist only what you want\\n[...]\\n```yaml\\nmcp_servers:\\n  github:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]\\n    env:\\n      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"\\n    tools:\\n      include: [list_issues, create_issue, search_code]\\n[...]\\n## What does filtering actually affect?\\n[...]\\nThere are two categories of MCP-exposed functionality in Hermes:\\n[...]\\n-added utility wrappers\\n[...]\\n- filtered with:\\n[...]\\n## Common patterns\\n[...]\\n### Pattern 1: local project assistant\\n[...]\\nUse MCP for a repo-local filesystem or git server when you want Hermes to reason over a bounded workspace.\\n[...]\\n```yaml\\nmcp_servers:\\n  fs:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/project\\\"]\\n\\n  git:\\n    command: \\\"uvx\\\"\\n    args: [\\\"mcp-server-git\\\", \\\"--repository\\\", \\\"/home/user/project\\\"]\\n[...]\\n### Pattern 2: GitHub\\n[...]\\nmcp_servers:\\n[...]\\n: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/\\n[...]\\n### Pattern 3: internal API assistant\\n[...]\\nmcp_servers:\\n[...]\\n:\\n    url: \\\"\\n[...]\\n### Pattern 4: documentation / knowledge servers\\n[...]\\n```yaml\\nmcp_servers:\\n  docs:\\n    url: \\\"https://mcp.docs.example\\n[...]\\n## Tutorial: end-to-end setup with filtering\\n[...]\\n### Phase 1: add GitHub MCP with a tight whitelist\\n[...]\\n```yaml\\nmcp_servers:\\n  github:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]\\n    env:\\n      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"\\n    tools:\\n      include: [list_issues, create_issue, search_code]\\n      prompts: false\\n      resources: false\\n[...]\\n### Phase 2: expand only when needed\\n[...]\\n### Phase 3: add a second server with different policy\\n[...]\\n```yaml\\nmcp_servers:\\n  github:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-github\\\"]\\n    env:\\n      GITHUB_PERSONAL_ACCESS_TOKEN: \\\"***\\\"\\n    tools:\\n      include: [list_issues, create_issue, update_issue, search_code]\\n      prompts: false\\n      resources: false\\n\\n  filesystem:\\n    command: \\\"npx\\\"\\n    args: [\\\"-y\\\", \\\"@modelcontextprotocol/server-filesystem\\\", \\\"/home/user/project\\\"]\\n[...]\\n## Safe usage recommendations\\n[...]\\n### Reload after config changes\\n[...]\\n```text\\n/reload-mcp\\n[...]\\n## Troubleshooting by symptom\\n[...]\\n### \\\"The server is configured but nothing loads\\\"\\n[...]\\n- `enabled: false`\\n[...]\\nnot left in config\\n- command/runtime exists (`npx`, `uvx`, etc.)\\n- HTTP endpoint is reachable\\n- auth env or headers are correct\\n[...]\\n### \\\"How do I remove an MCP server without deleting the config?\\\"\\n[...]\\n```yaml\\nenabled: false\",\n        \"position\": 3\n      }\n    ]\n  }\n}",
+      "tool_call_id": "call_01_UGZ79dYZcvLjTbo9BoOS5010"
+    },
+    {
+      "role": "assistant",
+      "content": "I now have comprehensive information on all four topics. Let me compile the structured how-to for each.\n\n---\n\n## Research Summary: Hermes Webhooks, Hooks, Profiles, and MCP\n\n### What I Did\n\nFetched documentation from the Hermes Agent GitHub repo (main branch) for webhooks, hooks, profiles, and MCP. Searched for community examples and blog posts. All source content extracted and verified.\n\n---\n\n### 1. Webhooks Setup Guide\n\n**What they are:** An HTTP server adapter that receives POST events from external services (GitHub, GitLab, Stripe, CI/CD, IoT, etc.) and triggers Hermes agent runs. Supports HMAC signature validation, payload templating, and response delivery to 17+ platforms.\n\n**Enabling the Webhook Platform** (3 methods):\n\n| Method | Command / Config |\n|--------|-----------------|\n| **Setup wizard** | `hermes gateway setup` → follow prompts |\n| **`config.yaml`** | Add `platforms: webhook: enabled: true` block with `host`, `port` (default 8644), `secret` |\n| **`~/.hermes/.env`** | `WEBHOOK_ENABLED=true` / `WEBHOOK_PORT=8644` / `WEBHOOK_SECRET=generate-a-strong-secret-here` |\n\nThen start: `hermes gateway run`. Verify: `curl http://localhost:8644/health`\n\n**Route Configuration** — Two approaches:\n\n1. **Static routes** in `config.yaml` under `platforms.webhook.extra.routes`:\n```yaml\nplatforms:\n  webhook:\n    enabled: true\n    extra:\n      routes:\n        github-prs:\n          events: [\"pull_request\"]\n          secret: \"my-hmac-secret\"\n          prompt: \"PR #{pull_request.number}: {pull_request.title} by {pull_request.user.login}\"\n          skills: [\"github-code-review\"]\n          deliver: github_comment\n          deliver_extra:\n            repo: \"{repository.full_name}\"\n            pr_number: \"{pull_request.number}\"\n```\n\n2. **Dynamic subscriptions** via CLI:\n```bash\nhermes webhook subscribe <name> \\\n  --prompt \"Template with {payload.field}\" \\\n  --events \"event1,event2\" \\\n  --skills \"skill1,skill2\" \\\n  --deliver telegram \\\n  --deliver-chat-id \"12345\" \\\n  --secret \"custom-secret\"\n```\n\n**Key route properties:** `events`, `secret`, `prompt` (dot-notation templates), `skills`, `deliver` (platform target), `deliver_extra`, `deliver_only` (zero-LLM-cost direct delivery).\n\n**Troubleshooting:** Check `systemctl --user status hermes-gateway`, verify `curl localhost:8644/health`, grep `~/.hermes/logs/gateway.log`, use `hermes webhook test <name>` to test routes.\n\n---\n\n### 2. Hook System (3 Systems)\n\nHermes provides three hook systems for lifecycle events:\n\n| System | Registered via | Runs in | Use Case |\n|--------|---------------|---------|----------|\n| **Gateway hooks** | `HOOK.yaml` + `handler.py` in `~/.hermes/hooks/` | Gateway only | Logging, alerts, webhook triggers |\n| **Plugin hooks** | `ctx.register_hook()` in a plugin | CLI + Gateway | Tool interception, metrics, guardrails |\n| **Shell hooks** | `hooks:` block in `~/.hermes/config.yaml` | CLI + Gateway | Drop-in scripts for blocking, formatting, context injection |\n\n#### Gateway Event Hooks\n\nDirectory structure per hook:\n```\n~/.hermes/hooks/my-hook/\n  ├── HOOK.yaml      # event declarations\n  └── handler.py     # must have def handle(event_type, context)\n```\n\nEvents: `gateway:startup`, `session:start/end/reset`, `agent:start/step/end`, `command:*`. Wildcard matching supported.\n\n#### Plugin Hooks (Python API)\nRegister in a plugin's `register(ctx)` function:\n```python\nctx.register_hook(\"pre_tool_call\", my_callback)   # can block tools\nctx.register_hook(\"post_tool_call\", my_logger)\nctx.register_hook(\"pre_llm_call\", my_injector)    # can inject context\nctx.register_hook(\"post_llm_call\", my_sync)\nctx.register_hook(\"on_session_start\", my_init)\nctx.register_hook(\"on_session_end\", my_cleanup)\n```\nPlus: `pre_gateway_dispatch` (skip/rewrite/allow), `transform_tool_result`, `transform_terminal_output`, `subagent_stop`.\n\n#### Shell Hooks (Config-based scripts)\nDeclared in `config.yaml`:\n```yaml\nhooks:\n  pre_tool_call:\n    - matcher: \"terminal\"\n      command: \"~/.hermes/agent-hooks/block-rm-rf.sh\"\n      timeout: 10\n  post_tool_call:\n    - matcher: \"write_file|patch\"\n      command: \"~/.hermes/agent-hooks/auto-format.sh\"\n  pre_llm_call:\n    - command: \"~/.hermes/agent-hooks/inject-cwd-context.sh\"\nhooks_auto_accept: false\n```\n\nScripts receive JSON on stdin and can return JSON to block or inject. First-use consent per (event, command) pair persists to `~/.hermes/shell-hooks-allowlist.json`. Manage with `hermes hooks list|test|revoke|doctor`.\n\n---\n\n### 3. Profile Creation Documentation\n\n**What they are:** Independent Hermes agent environments — each gets its own `config.yaml`, `.env`, `SOUL.md`, memories, sessions, skills, cron jobs, and state database. Profiles auto-create shell aliases (`coder chat` = `hermes -p coder chat`).\n\n**Quick start:**\n```bash\nhermes profile create coder   # creates profile + alias\ncoder setup                   # configure API keys\ncoder chat                    # start chatting\n```\n\n**Creation options:**\n\n| Command | What it does |\n|---------|-------------|\n| `hermes profile create mybot` | Blank profile (seeds bundled skills) |\n| `hermes profile create work --clone` | Copies current profile's `config.yaml`, `.env`, `SOUL.md` |\n| `hermes profile create backup --clone-all` | Clones everything (memories, sessions, skills, cron, state) |\n| `hermes profile create work --clone --clone-from coder` | Clone from a specific profile |\n\n**Profile management subcommands:** `list`, `use`, `create`, `delete`, `show`, `rename`, `alias`, `export`, `import`, `install`, `update`, `info`.\n\n**Usage:** Auto-aliases (`coder chat`), `-p` flag (`hermes -p coder chat`), sticky default (`hermes profile use coder`).\n\n**Config per profile:** `coder config set model.default anthropic/claude-sonnet-4`, edit `~/.hermes/profiles/coder/SOUL.md`, set `terminal.cwd`.\n\n**Under the hood:** Sets `HERMES_HOME=~/.hermes/profiles/<name>` before launching Hermes.\n\n**Profile Distributions:** Package a profile as a git repo with `distribution.yaml`, share via `hermes profile install github.com/you/research-bot`. Supports versioning, env var requirements, and in-place updates.\n\n---\n\n### 4. MCP (Model Context Protocol) Setup\n\nHermes Agent is both an **MCP client** (connects to external MCP servers) and an **MCP server** (exposes its messaging capabilities to other agents).\n\n#### As MCP Client (Connect to External Servers)\n\n**Prerequisites:** `cd ~/.hermes/hermes-agent && uv pip install -e \".[mcp]\"`, Node.js/npx for npm-based servers, `uvx` for Python servers.\n\n**Configuration** in `~/.hermes/config.yaml` under `mcp_servers`:\n\n**Stdio server** (local subprocess):\n```yaml\nmcp_servers:\n  filesystem:\n    command: \"npx\"\n    args: [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/home/user/projects\"]\n```\n\n**HTTP server** (remote endpoint):\n```yaml\nmcp_servers:\n  company_api:\n    url: \"https://mcp.internal.example.com\"\n    headers:\n      Authorization: \"Bearer sk-...\"\n```\n\n**Per-server tool filtering:**\n```yaml\nmcp_servers:\n  github:\n    command: \"npx\"\n    args: [\"-y\", \"@modelcontextprotocol/server-github\"]\n    env:\n      GITHUB_PERSONAL_ACCESS_TOKEN: \"***\"\n    tools:\n      include: [list_issues, create_issue, search_code]\n      resources: false\n      prompts: false\n```\n\n**Key config keys:** `command`, `args`, `env`, `url`, `headers`, `timeout` (default 120s), `connect_timeout` (default 60s), `enabled`, `tools.include/exclude`, `auth` (for OAuth 2.1), `sampling`.\n\n**Reload after changes:** Use `/reload-mcp` in chat.\n\n#### As MCP Server (Expose Hermes to Other Agents)\n\n```bash\nhermes mcp serve    # starts stdio MCP server exposing 10 messaging tools\n```\n\nAdd to MCP client config (e.g., Claude Code):\n```json\n{\n  \"mcpServers\": {\n    \"hermes\": {\n      \"command\": \"hermes\",\n      \"args\": [\"mcp\", \"serve\"]\n    }\n  }\n}\n```\n\nFor send operations, the Hermes gateway must be running: `hermes gateway run`.\n\n#### Authoring MCP Servers (FastMCP Skill)\n\nUse the bundled `fastmcp` skill to build new MCP servers in Python:\n```bash\n# Scaffold from template\npython ~/.hermes/skills/mcp/fastmcp/scripts/scaffold_fastmcp.py \\\n  --template api_wrapper \\\n  --name \"Acme API\" \\\n  --output ./acme_server.py\n\n# Test locally\nfastmcp inspect acme_server.py:mcp\nfastmcp call acme_server.py search_resources query=router --json\n\n# Install into a client\nfastmcp install claude-code acme_server.py\nfastmcp install claude-desktop acme_server.py\n```\n\n---\n\n### Files Created or Modified\n\nNone — this was purely a research/information-gathering task.\n\n### Issues Encountered\n\n- The `https://hermes-agent.nousresearch.com/docs/guides/*` URLs returned errors (content inaccessible via `web_extract`). I resolved this by fetching the raw markdown from the GitHub source repo (`github.com/NousResearch/hermes-agent/blob/main/website/docs/...`).\n- The hooks documentation page was found via the `features/hooks.md` path rather than `guides/hooks` — the URL structure differs from what was expected.",
+      "reasoning": null,
+      "finish_reason": "stop"
+    }
+  ]
+}
