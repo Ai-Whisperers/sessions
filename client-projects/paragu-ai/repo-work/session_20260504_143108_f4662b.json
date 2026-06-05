@@ -1497,7 +1497,7 @@
           "type": "function",
           "function": {
             "name": "terminal",
-            "arguments": "{\"command\": \"sleep 10 && docker service ls --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\" 2>&1\", \"timeout\": 20}"
+            "arguments": "{\"command\": \"sleep 10 && [REDACTED_DOCKER_CMD] --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\" 2>&1\", \"timeout\": 20}"
           }
         }
       ]
@@ -2923,7 +2923,7 @@
           "type": "function",
           "function": {
             "name": "terminal",
-            "arguments": "{\"command\": \"# Check if there are multiple services with different images\\ndocker service ls --filter name=goldenvisa\\necho \\\"---\\\"\\n# Check if the old stack images are still cached\\ndocker service inspect goldenvisa_web --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'\\necho \\\"---\\\"\\n# Check what's actually running\\ndocker ps --filter name=goldenvisa --format \\\"table {{.ID}}\\\\t{{.Image}}\\\\t{{.CreatedAt}}\\\"\", \"timeout\": 10}"
+            "arguments": "{\"command\": \"# Check if there are multiple services with different images\\n[REDACTED_DOCKER_CMD] --filter name=goldenvisa\\necho \\\"---\\\"\\n# Check if the old stack images are still cached\\ndocker service inspect goldenvisa_web --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'\\necho \\\"---\\\"\\n# Check what's actually running\\ndocker ps --filter name=goldenvisa --format \\\"table {{.ID}}\\\\t{{.Image}}\\\\t{{.CreatedAt}}\\\"\", \"timeout\": 10}"
           }
         }
       ]
@@ -3038,7 +3038,7 @@
           "type": "function",
           "function": {
             "name": "terminal",
-            "arguments": "{\"command\": \"# Simple approach - restart the service by rolling update to force fresh containers\\ndocker service update --force goldenvisa_web 2>&1\\necho \\\"Waiting for new containers...\\\"\\nsleep 15\\ndocker service ls --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\", \"timeout\": 30}"
+            "arguments": "{\"command\": \"# Simple approach - restart the service by rolling update to force fresh containers\\ndocker service update --force goldenvisa_web 2>&1\\necho \\\"Waiting for new containers...\\\"\\nsleep 15\\n[REDACTED_DOCKER_CMD] --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\", \"timeout\": 30}"
           }
         }
       ]
@@ -3061,7 +3061,7 @@
           "type": "function",
           "function": {
             "name": "terminal",
-            "arguments": "{\"command\": \"docker service ls --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\\necho \\\"---\\\"\\ndocker service ps goldenvisa_web --format \\\"table {{.Name}}\\\\t{{.State}}\\\\t{{.Error}}\\\"\", \"timeout\": 10}"
+            "arguments": "{\"command\": \"[REDACTED_DOCKER_CMD] --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\\necho \\\"---\\\"\\ndocker service ps goldenvisa_web --format \\\"table {{.Name}}\\\\t{{.State}}\\\\t{{.Error}}\\\"\", \"timeout\": 10}"
           }
         }
       ]
@@ -3280,7 +3280,7 @@
           "type": "function",
           "function": {
             "name": "skill_manage",
-            "arguments": "{\"action\": \"patch\", \"name\": \"standalone-ecommerce-store\", \"old_string\": \"## Deploy: Cloudflare SSL + LetsEncrypt Chicken-and-Egg\", \"new_string\": \"## Deploy: Next.js Internal Cache Stales After Redeploy\\n\\n### Symptom\\nAfter `docker build` + `docker stack deploy`, the live site shows OLD content. Chunk filenames in the served HTML (`curl -s https://site.com/ | grep -oP 'chunks/[a-z0-9~_.-]+\\\\.js' | sort -u`) don't match what's in the new container (`ls /app/.next/static/chunks/`). The response header shows `x-nextjs-cache: HIT`.\\n\\n### Root Cause\\nNext.js standalone caches static pages in memory internally. When you `docker stack deploy` a new image that replaces running containers, the new containers inherit the old build's cached HTML. The `s-maxage=31536000` Cache-Control header from the first build tells downstream caches (Cloudflare, CDN) to cache for a year, trapping the stale HTML.\\n\\n### Fix: Force Rolling Update to Clear Cache\\n```bash\\n# Force new containers to clear Next.js in-memory cache\\ndocker service update --force goldenvisa_web\\n\\n# Wait for new containers, then verify\\nsleep 15\\ndocker service ls --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\\n```\\n\\n### Verification (the definitive signal)\\n```bash\\n# Compare live chunks vs container chunks — they MUST match\\necho \\\"=== Live (Traefik) ===\\\"\\ncurl -s https://site.com/ | grep -oP 'chunks/[a-z0-9~_.-]+\\\\.js' | sort -u\\necho \\\"\\\"\\necho \\\"=== Container ===\\\"\\ndocker exec $(docker ps --filter name=SERVICE --format \\\"{{.ID}}\\\" | head -1) ls /app/.next/static/chunks/\\n```\\n\\nIf they don't match, stale HTML is being served. The mismatch is a definitive indicator — not speculation.\\n\\n### Prevention\\nAlways run `docker service update --force <stack>_web` after `docker stack deploy` to clear Next.js's internal cache on all replicas.\\n\\n## Deploy: Cloudflare SSL + LetsEncrypt Chicken-and-Egg\", \"patch\": true}"
+            "arguments": "{\"action\": \"patch\", \"name\": \"standalone-ecommerce-store\", \"old_string\": \"## Deploy: Cloudflare SSL + LetsEncrypt Chicken-and-Egg\", \"new_string\": \"## Deploy: Next.js Internal Cache Stales After Redeploy\\n\\n### Symptom\\nAfter `docker build` + `docker stack deploy`, the live site shows OLD content. Chunk filenames in the served HTML (`curl -s https://site.com/ | grep -oP 'chunks/[a-z0-9~_.-]+\\\\.js' | sort -u`) don't match what's in the new container (`ls /app/.next/static/chunks/`). The response header shows `x-nextjs-cache: HIT`.\\n\\n### Root Cause\\nNext.js standalone caches static pages in memory internally. When you `docker stack deploy` a new image that replaces running containers, the new containers inherit the old build's cached HTML. The `s-maxage=31536000` Cache-Control header from the first build tells downstream caches (Cloudflare, CDN) to cache for a year, trapping the stale HTML.\\n\\n### Fix: Force Rolling Update to Clear Cache\\n```bash\\n# Force new containers to clear Next.js in-memory cache\\ndocker service update --force goldenvisa_web\\n\\n# Wait for new containers, then verify\\nsleep 15\\n[REDACTED_DOCKER_CMD] --filter name=goldenvisa --format \\\"table {{.Name}}\\\\t{{.Replicas}}\\\"\\n```\\n\\n### Verification (the definitive signal)\\n```bash\\n# Compare live chunks vs container chunks — they MUST match\\necho \\\"=== Live (Traefik) ===\\\"\\ncurl -s https://site.com/ | grep -oP 'chunks/[a-z0-9~_.-]+\\\\.js' | sort -u\\necho \\\"\\\"\\necho \\\"=== Container ===\\\"\\ndocker exec $(docker ps --filter name=SERVICE --format \\\"{{.ID}}\\\" | head -1) ls /app/.next/static/chunks/\\n```\\n\\nIf they don't match, stale HTML is being served. The mismatch is a definitive indicator — not speculation.\\n\\n### Prevention\\nAlways run `docker service update --force <stack>_web` after `docker stack deploy` to clear Next.js's internal cache on all replicas.\\n\\n## Deploy: Cloudflare SSL + LetsEncrypt Chicken-and-Egg\", \"patch\": true}"
           }
         }
       ]
